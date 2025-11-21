@@ -1,0 +1,75 @@
+// TEST: while loop without block
+var a = 1;
+while (a < 5) print a = a + 1;
+// EXPECT:
+2
+3
+4
+5
+
+// TEST: while loop with block
+var a = 1;
+while (a < 5) {
+  print a;
+  a = a + 1;
+}
+// EXPECT:
+1
+2
+3
+4
+
+// TEST: nested while loop
+var a = 1;
+while (a < 3) {
+  print a;
+  var b = 1;
+  while (b < 3) {
+    print b;
+    b = b + 1;
+  }
+  a = a + 1;
+}
+// EXPECT:
+1
+1
+2
+2
+1
+2
+
+// TEST: while loop evaluates condition before body
+var a = 1;
+while (a == 1 and (a = 2)) print a;
+// EXPECT:
+2
+
+// TEST: return in infinite while loop exits function
+fun test() {
+  var a = 1;
+  while (true) {
+    if (a == 3) return;
+    print a;
+    a = a + 1;
+  }
+}
+test();
+// EXPECT:
+1
+2
+
+// TEST: missing opening parenthesis in while statement error
+while true) {
+  print "hi";
+}
+// EXPECT:
+[line 1] Error at 'true': Expect '(' after 'while'.
+[line 3] Error at '}': Expect expression.
+
+// TEST: missing closing parenthesis in while statement error
+while (true {
+  print "hi";
+}
+// EXPECT:
+[line 1] Error at '{': Expect ')' after condition.
+[line 3] Error at '}': Expect expression.

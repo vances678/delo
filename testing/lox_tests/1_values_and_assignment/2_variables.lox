@@ -1,0 +1,193 @@
+// TEST: variable declaration
+var a = 1;
+print a;
+// EXPECT:
+1
+
+// TEST: variable declaration without initialization
+var a;
+print a;
+// EXPECT:
+nil
+
+// TEST: variable redeclaration at global scope
+var a = 1;
+print a;
+var a = 2;
+print a;
+// EXPECT:
+1
+2
+
+// TEST: variable redeclaration invalid in local scope
+{
+  var a = 1;
+  var a = 2;
+}
+// EXPECT:
+[line 3] Error at 'a': Already a variable with this name in this scope.
+
+// TEST: variable reassignment
+var a = 1;
+print a;
+a = 2;
+print a;
+// EXPECT:
+1
+2
+
+// TEST: variable reassignment is right associative
+var c = 3;
+var b = 2;
+var a = 1;
+a = b = c;
+print a;
+print b;
+print c;
+// EXPECT:
+3
+3
+3
+
+// TEST: variable shadowing
+var a = 1;
+print a;
+{
+    var a = 2;
+    print a;
+}
+print a;
+// EXPECT:
+1
+2
+1
+
+// TEST: variable declaration in separately scoped blocks
+{
+  var a = 1;
+  print a;
+}
+{
+  var a = 2;
+  print a;
+}
+// EXPECT:
+1
+2
+
+// TEST: function closure captures variable from outer scope
+var a = 1;
+{
+  fun test() {
+    print a;
+  }
+  test();
+  var a = 2;
+  test();
+  a = 3;
+  test();
+}
+// EXPECT:
+1
+1
+1
+
+// TEST: local variables, nesting, and shadowing example from book
+var a = "global a";
+var b = "global b";
+var c = "global c";
+{
+  var a = "outer a";
+  var b = "outer b";
+  {
+    var a = "inner a";
+    print a;
+    print b;
+    print c;
+  }
+  print a;
+  print b;
+  print c;
+}
+print a;
+print b;
+print c;
+// EXPECT:
+inner a
+outer b
+global c
+outer a
+outer b
+global c
+global a
+global b
+global c 
+
+// TEST: undefined global variable error
+print a;
+// EXPECT:
+Undefined variable 'a'.
+[line 1]
+
+// TEST: undefined local variable error
+{
+  print a;
+}
+// EXPECT:
+Undefined variable 'a'.
+[line 2]
+
+// TEST: invalid variable name in declaration error
+var (a) = 1;
+// EXPECT:
+[line 1] Error at '(': Expect variable name.
+
+// TEST: missing variable name error
+var = 1;
+// EXPECT:
+[line 1] Error at '=': Expect variable name.
+
+// TEST: missing expression in var declaration error
+var a = ;
+// EXPECT:
+[line 1] Error at ';': Expect expression.
+
+// TEST: invalid assignment target error
+1 = 2;
+// EXPECT:
+[line 1] Error at '=': Invalid assignment target.
+
+// TEST: missing semicolon for variable declaration error
+var a = 1
+// EXPECT:
+[line 2] Error at end: Expect ';' after variable declaration.
+
+// TEST: variable declaration in function with same name as parameter error 
+fun test(a) {
+  var a = 1;
+}
+// EXPECT:
+[line 2] Error at 'a': Already a variable with this name in this scope.
+
+// TEST: duplicate parameter name error
+fun test(a, a) {
+  print "hi";
+}
+// EXPECT:
+[line 1] Error at 'a': Already a variable with this name in this scope.
+
+// TEST: cannot assign to nil
+nil = 1;
+// EXPECT:
+[line 1] Error at '=': Invalid assignment target.
+
+// TEST: cannot assign to grouped variable
+var a = 1;
+(a) = 2;
+// EXPECT:
+[line 2] Error at '=': Invalid assignment target.
+
+// TEST: cannot declare variable in if statement
+if (monday) var beverage = "espresso";
+// EXPECT:
+[line 1] Error at 'var': Expect expression.

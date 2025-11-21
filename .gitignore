@@ -1,0 +1,7 @@
+# rust stuff
+/target/
+**/*.rs.bk
+
+# executables
+*.exe
+*.out

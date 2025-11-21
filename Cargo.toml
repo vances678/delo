@@ -1,0 +1,11 @@
+[package]
+name = "delo"
+version = "0.1.0"
+edition = "2024"
+default-run = "delo"
+
+[[bin]]
+name = "test_runner"
+path = "testing/test_runner.rs"
+
+[dependencies]

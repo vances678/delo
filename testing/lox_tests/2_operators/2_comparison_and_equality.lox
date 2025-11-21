@@ -1,0 +1,113 @@
+// TEST: less than (true)
+print 1 < 2;
+// EXPECT:
+true
+
+// TEST: less than (false)
+print 2 < 1;
+// EXPECT:
+false
+
+// TEST: less than error (invalid operands: number and string)
+print 1 < "hi";
+// EXPECT:
+Operands must be numbers.
+[line 1]
+
+// TEST: greater than (true)
+print 2 > 1;
+// EXPECT:
+true
+
+// TEST: greater than (false)
+print 1 > 2;
+// EXPECT:
+false
+
+// TEST: greater than error (invalid operands: number and string)
+print 1 > "hi";
+// EXPECT:
+Operands must be numbers.
+[line 1]
+
+// TEST: less than or equal to (true)
+print 1 <= 2;
+// EXPECT:
+true
+
+// TEST: less than or equal to (false)
+print 2 <= 1;
+// EXPECT:
+false
+
+// TEST: less than or equal to error (invalid operands: number and string)
+print 1 <= "hi";
+// EXPECT:
+Operands must be numbers.
+[line 1]
+
+// TEST: greater than or equal to (true)
+print 2 >= 1;
+// EXPECT:
+true
+
+// TEST: greater than or equal to (false)
+print 1 >= 2;
+// EXPECT:
+false
+
+// TEST: greater than or equal to error (invalid operands: number and string)
+print 1 >= "hi";
+// EXPECT:
+Operands must be numbers.
+[line 1]
+
+// TEST: equality (number, true)
+print 1 == 1;
+// EXPECT:
+true
+
+// TEST: equality (number, false)
+print 1 == 2;
+// EXPECT:
+false
+
+// TEST: equality (string, true)
+print "cat" == "cat";
+// EXPECT:
+true
+
+// TEST: equality (string, false)
+print "cat" == "dog";
+// EXPECT:
+false
+
+// TEST: equality, no implicit conversion (number and string)
+print 1 == "1";
+// EXPECT:
+false
+
+// TEST: inequality (number, true)
+print 1 != 2;
+// EXPECT:
+true
+
+// TEST: inequality (number, false)
+print 1 != 1;
+// EXPECT:
+false
+
+// TEST: inequality (string, true)
+print "cat" != "dog";
+// EXPECT:
+true
+
+// TEST: inequality (string, false)
+print "cat" != "cat";
+// EXPECT:
+false
+
+// TEST: inequality, no implicit conversion (number and string)
+print 1 != "1";
+// EXPECT:
+true

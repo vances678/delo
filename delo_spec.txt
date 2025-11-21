@@ -1,0 +1,52 @@
+Delo: A time-traveling programming language
+
+Characteristics:
+  Imperative
+  Procedural (with some functional ideas)
+  Statically typed
+  Eager evaluation
+  Expression-oriented (mostly expressions instead of statements)
+  Garbage collected (incrementally using mark-and-sweep method with tri-color marking)
+  Compiled to C
+
+Features:
+  “Time-traveling”: can access and mutate values of variables at previous program states
+  First class functions
+  Higher-order functions
+  Pattern matching
+  Enums (cases can have associated values)
+  Structs
+  Optional values
+  Functional collection transformations (map, etc)
+
+Time traveling functionality:
+  Changes to past states of variables ripple forward
+
+Type system:
+  Statically typed
+  Strongly typed
+  Partial type inference
+    Must explicitly declare function parameter types
+    Function return type can be inferred based on the function body
+    Variable types can be inferred
+  Parametric polymorphism (generic types)
+  Optional types
+    Optional type is an enum with cases Some and None
+    Handle with pattern matching or the nil-coalescing operator (??)
+    No force unwrapping
+    Int? is syntactic sugar for Optional<Int>
+  Primitives implemented as structs
+  Core types: Int, Double, Bool, String, Void
+  Generic types: Optional<T>, Array<T>, Map<T>
+  Function types: (<ParamType1>, <ParamType2>, ...) -> <ReturnType>
+    Examples: 
+    (Int, Int) -> Bool
+    (Double) -> Int?
+    () -> Void
+    (T) -> T
+    ((Int) -> Int) -> Int
+
+Todo (implement later):
+  Error handling
+  Imports/exports
+  Standard library (std)

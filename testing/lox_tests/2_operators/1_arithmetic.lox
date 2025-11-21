@@ -1,0 +1,119 @@
+// TEST: negative (integer)
+print -1;
+// EXPECT:
+-1
+
+// TEST: negative (decimal)
+print -1.5;
+// EXPECT:
+-1.5
+
+// TEST: negative invalid operand error (string)
+print -"hi";
+// EXPECT:
+Operand must be a number.
+[line 1]
+
+// TEST: addition (integers)
+print 1 + 2;
+// EXPECT:
+3
+
+// TEST: addition (decimals)
+print 1.5 + 2.123;
+// EXPECT:
+3.623
+
+// TEST: addition (integer and decimal)
+print 1 + 2.123;
+// EXPECT:
+3.123
+
+// TEST: addition (negative)
+print -1 + 2;
+// EXPECT:
+1
+
+// TEST: addition invalid operands error (number and string)
+print 1 + "hi";
+// EXPECT:
+Operands must be two numbers or two strings.
+[line 1]
+
+// TEST: subtraction (integers)
+print 2 - 1;
+// EXPECT:
+1
+
+// TEST: subtraction (decimals)
+print 2.5 - 1.123;
+// EXPECT:
+1.377
+
+// TEST: subtraction (integer and decimal)
+print 2 - 1.123;
+// EXPECT:
+0.877
+
+// TEST: subtraction (negative)
+print -1 - 2;
+// EXPECT:
+-3
+
+// TEST: subtraction invalid operands error (number and string)
+print 1 - "hi";
+// EXPECT:
+Operands must be numbers.
+[line 1]
+
+// TEST: multiplication (integers)
+print 2 * 3;
+// EXPECT:
+6
+
+// TEST: multiplication (decimals)
+print 2.5 * 0.5;
+// EXPECT:
+1.25
+
+// TEST: multiplication (integer and decimal)
+print 2 * 3.123;
+// EXPECT:
+6.246
+
+// TEST: multiplication (negative)
+print -1 * 2;
+// EXPECT:
+-2
+
+// TEST: multiplication invalid operands error (number and string)
+print 1 * "hi";
+// EXPECT:
+Operands must be numbers.
+[line 1]
+
+// TEST: division (integers)
+print 4 / 2;
+// EXPECT:
+2
+
+// TEST: division (decimals)
+print 5.5 / 1.25;
+// EXPECT:
+4.4
+
+// TEST: division (integer and decimal)
+print 3 / 1.5;
+// EXPECT:
+2
+
+// TEST: division (negative)
+print -1 / 2;
+// EXPECT:
+-0.5
+
+// TEST: division invalid operands error (number and string)
+print 1 / "hi";
+// EXPECT:
+Operands must be numbers.
+[line 1]

@@ -1,0 +1,305 @@
+// TEST: function with no parameters
+fun test() {
+  print "hi";
+}
+test();
+// EXPECT:
+hi
+
+// TEST: function with one parameter
+fun test(a) {
+  print a;
+}
+test("hi");
+// EXPECT:
+hi
+
+// TEST: function with two parameters
+fun test(a, b) {
+  print a;
+  print b;
+}
+test("hi", "hi hi");
+// EXPECT:
+hi
+hi hi
+
+// TEST: error passing too few arguments to function
+fun test(a) {
+  print a;
+}
+test();
+// EXPECT:
+Expected 1 arguments but got 0.
+[line 4]
+
+// TEST: error passing too many arguments to function
+fun test(a) {
+  print a;
+}
+test("hi", "hi hi");
+// EXPECT:
+Expected 1 arguments but got 2.
+[line 4]
+
+// TEST: function with return value
+fun test() {
+  return "hi";
+}
+print test();
+// EXPECT:
+hi
+
+// TEST: function with implicit nil return value
+fun test() {
+  print "hi";
+}
+print test();
+// EXPECT:
+hi
+nil
+
+// TEST: first class functions example from book
+fun addPair(a, b) {
+  return a + b;
+}
+
+fun identity(a) {
+  return a;
+}
+
+print identity(addPair)(1, 2);
+// EXPECT:
+3
+
+// TEST: function declaration within a function
+fun a() {
+  fun b() {
+    print "hi";
+  }
+
+  b();
+}
+a();
+// EXPECT:
+hi
+
+// TEST: closure example from book
+fun returnFunction() {
+  var outside = "outside";
+
+  fun inner() {
+    print outside;
+  }
+
+  return inner;
+}
+
+var fn = returnFunction();
+fn();
+// EXPECT:
+outside
+
+// TEST: recursive function
+fun test(a) {
+  if (a == 0) return;
+  print a;
+  test(a - 1);
+}
+test(3);
+// EXPECT:
+3
+2
+1
+
+// TEST: mutually recursive functions that call each other
+fun isOdd(n) {
+  if (n == 0) return false;
+  return isEven(n - 1);
+}
+
+fun isEven(n) {
+  if (n == 0) return true;
+  return isOdd(n - 1);
+}
+
+print isOdd(3);
+print isEven(3);
+// EXPECT:
+true
+false
+
+// TEST: recursive fibonacci numbers example from book
+fun fib(n) {
+  if (n <= 1) return n;
+  return fib(n - 2) + fib(n - 1);
+}
+
+for (var i = 0; i < 20; i = i + 1) {
+  print fib(i);
+}
+// EXPECT:
+0
+1
+1
+2
+3
+5
+8
+13
+21
+34
+55
+89
+144
+233
+377
+610
+987
+1597
+2584
+4181
+
+// TEST: counter function example from book
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
+
+  return count;
+}
+
+var counter = makeCounter();
+counter();
+counter();
+counter();
+// EXPECT:
+1
+2
+3
+
+// TEST: closure captures variable from outer scope example from book
+var a = "global";
+{
+  fun showA() {
+    print a;
+  }
+
+  showA();
+  var a = "block";
+  showA();
+}
+// EXPECT:global
+global
+global
+
+// TEST: print function name
+fun test() {
+  print "hi";
+}
+print test;
+// EXPECT:
+<fn test>
+
+// TEST: more than 255 function parameters error
+fun test(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,aa,ab,ac,ad,ae,af,ag,ah,ai,aj,ak,al,am,an,ao,ap,aq,ar,as,at,au,av,aw,ax,ay,az,ba,bb,bc,bd,be,bf,bg,bh,bi,bj,bk,bl,bm,bn,bo,bp,bq,br,bs,bt,bu,bv,bw,bx,by,bz,ca,cb,cc,cd,ce,cf,cg,ch,ci,cj,ck,cl,cm,cn,co,cp,cq,cr,cs,ct,cu,cv,cw,cx,cy,cz,da,db,dc,dd,de,df,dg,dh,di,dj,dk,dl,dm,dn,do,dp,dq,dr,ds,dt,du,dv,dw,dx,dy,dz,ea,eb,ec,ed,ee,ef,eg,eh,ei,ej,ek,el,em,en,eo,ep,eq,er,es,et,eu,ev,ew,ex,ey,ez,fa,fb,fc,fd,fe,ff,fg,fh,fi,fj,fk,fl,fm,fn,fo,fp,fq,fr,fs,ft,fu,fv,fw,fx,fy,fz,ga,gb,gc,gd,ge,gf,gg,gh,gi,gj,gk,gl,gm,gn,go,gp,gq,gr,gs,gt,gu,gv,gw,gx,gy,gz,ha,hb,hc,hd,he,hf,hg,hh,hi,hj,hk,hl,hm,hn,ho,hp,hq,hr,hs,ht,hu,hv,hw,hx,hy,hz,ia,ib,ic,id,ie,ig,ih,ii,ij,ik,il,im,io,ip,iq,ir,is,it,iu,iv,iw,toomany) {
+  print "hi";
+}
+// EXPECT:
+[line 1] Error at 'toomany': Can't have more than 255 parameters.
+
+// TEST: more than 255 function arguments error
+fun test() {
+  print "hi";
+}
+test(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,aa,ab,ac,ad,ae,af,ag,ah,ai,aj,ak,al,am,an,ao,ap,aq,ar,as,at,au,av,aw,ax,ay,az,ba,bb,bc,bd,be,bf,bg,bh,bi,bj,bk,bl,bm,bn,bo,bp,bq,br,bs,bt,bu,bv,bw,bx,by,bz,ca,cb,cc,cd,ce,cf,cg,ch,ci,cj,ck,cl,cm,cn,co,cp,cq,cr,cs,ct,cu,cv,cw,cx,cy,cz,da,db,dc,dd,de,df,dg,dh,di,dj,dk,dl,dm,dn,do,dp,dq,dr,ds,dt,du,dv,dw,dx,dy,dz,ea,eb,ec,ed,ee,ef,eg,eh,ei,ej,ek,el,em,en,eo,ep,eq,er,es,et,eu,ev,ew,ex,ey,ez,fa,fb,fc,fd,fe,ff,fg,fh,fi,fj,fk,fl,fm,fn,fo,fp,fq,fr,fs,ft,fu,fv,fw,fx,fy,fz,ga,gb,gc,gd,ge,gf,gg,gh,gi,gj,gk,gl,gm,gn,go,gp,gq,gr,gs,gt,gu,gv,gw,gx,gy,gz,ha,hb,hc,hd,he,hf,hg,hh,hi,hj,hk,hl,hm,hn,ho,hp,hq,hr,hs,ht,hu,hv,hw,hx,hy,hz,ia,ib,ic,id,ie,ig,ih,ii,ij,ik,il,im,io,ip,iq,ir,is,it,iu,iv,iw,toomany);
+// EXPECT:
+[line 4] Error at 'toomany': Can't have more than 255 arguments.
+
+// TEST: missing opening bracket for function block error
+fun test() 
+  print "hi";
+}
+// EXPECT:
+[line 2] Error at 'print': Expect '{' before function body.
+[line 3] Error at '}': Expect expression.
+
+// TEST: missing block closing bracket error
+{
+  print "hi";
+// EXPECT:
+[line 3] Error at end: Expect '}' after block.
+
+// TEST: missing function name error
+fun () {
+  print "hi";
+}
+// EXPECT:
+[line 1] Error at '(': Expect function name.
+[line 3] Error at '}': Expect expression.
+
+// TEST: invalid function parameter name error
+fun test(+) {
+  print "hi";
+}
+// EXPECT:
+[line 1] Error at '+': Expect parameter name.
+[line 3] Error at '}': Expect expression.
+
+// TEST: missing function opening parenthesis error
+fun test) {
+  print "hi";
+}
+// EXPECT:
+[line 1] Error at ')': Expect '(' after function name.
+[line 3] Error at '}': Expect expression.
+
+// TEST: missing function closing parenthesis error
+fun test(a {
+  print "hi";
+// EXPECT:
+[line 1] Error at '{': Expect ')' after parameters.
+
+// TEST: missing function call closing parenthesis error
+fun test(a) {
+  print a;
+}
+test(a;
+// EXPECT:
+[line 4] Error at ';': Expect ')' after arguments.
+
+// TEST: missing semicolon for return error
+return 1
+// EXPECT:
+[line 2] Error at end: Expect ';' after return value.
+
+// TEST: top-level return error
+return 1;
+// EXPECT:
+[line 1] Error at 'return': Can't return from top-level code.
+
+// TEST: cannot call string as function
+"hi"();
+// EXPECT:
+Can only call functions and classes.
+[line 1]
+
+// TEST: cannot call number as function
+1();
+// EXPECT:
+Can only call functions and classes.
+[line 1]
+
+// TEST: cannot call boolean as function
+true();
+// EXPECT:
+Can only call functions and classes.
+[line 1]
+
+// TEST: cannot call nil as function
+nil();
+// EXPECT:
+Can only call functions and classes.
+[line 1]

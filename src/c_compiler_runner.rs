@@ -1,0 +1,1 @@
+// TODO: detect OS, then call as many c compilers as possible until one exists, then run it to compile the generated C code
