@@ -5,7 +5,6 @@ Characteristics:
   Procedural (with some functional ideas)
   Statically typed
   Eager evaluation
-  Expression-oriented (mostly expressions instead of statements)
   Garbage collected (incrementally using mark-and-sweep method with tri-color marking)
   Compiled to C
 
@@ -37,7 +36,7 @@ Type system:
     Int? is syntactic sugar for Optional<Int>
   Primitives implemented as structs
   Core types: Int, Double, Bool, String, Void
-  Generic types: Optional<T>, Array<T>, Map<T>
+  Generic types: Optional<T>, Array<T>, Range<T>, Map<T>
   Function types: (<ParamType1>, <ParamType2>, ...) -> <ReturnType>
     Examples: 
     (Int, Int) -> Bool
@@ -46,7 +45,7 @@ Type system:
     (T) -> T
     ((Int) -> Int) -> Int
 
-Todo (implement later):
+Roadmap (implement later):
   Error handling
   Imports/exports
   Standard library (std)
