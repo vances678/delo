@@ -1,0 +1,49 @@
+// TEST: logical not (not True -> False)
+print(!True)
+// EXPECT:
+False
+
+// TEST: logical not (not False -> True)
+print(!False)
+// EXPECT:
+True
+
+// TEST: logical and (False && False -> False)
+print(False && False)
+// EXPECT:
+False
+
+// TEST: logical and (True && False -> False)
+print(True && False)
+// EXPECT:
+False
+
+// TEST: logical and (False && True -> False)
+print(False && True)
+// EXPECT:
+False
+
+// TEST: logical and (True && True -> True)
+print(True && True)
+// EXPECT:
+True
+
+// TEST: logical or (False || False -> False)
+print(False || False)
+// EXPECT:
+False
+
+// TEST: logical or (True || False -> True)
+print(True || False)
+// EXPECT:
+True
+
+// TEST: logical or (False || True -> True)
+print(False || True)
+// EXPECT:
+True
+
+// TEST: logical or (True || True -> True)
+print(True || True)
+// EXPECT:
+True

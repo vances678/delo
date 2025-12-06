@@ -1,0 +1,144 @@
+// TEST: undefined enum variant
+enum Shape1 {
+  Circle,
+  Rectangle
+}
+
+var s = Triangle
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Undefined variable (Triangle)
+  |
+6 | var s = Triangle
+  |                ^
+
+
+// TEST: enum with payloads - too few arguments
+enum Shape2 {
+  Circle(Double),           // radius
+  Rectangle(Double, Double) // width, height
+}
+
+var shape = Rectangle(2)
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Expected 2 arguments, found 1
+  |
+6 | var shape = Rectangle(2)
+  |                        ^
+
+
+// TEST: enum with payloads - too many arguments
+enum Shape3 {
+  Circle(Double),
+  Rectangle(Double, Double)
+}
+
+var shape = Rectangle(1.0, 2.0, 3.0)
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Expected 2 arguments, found 3
+  |
+6 | var shape = Rectangle(1.0, 2.0, 3.0)
+  |                                    ^
+
+
+// TEST: enum with payloads - wrong payload type
+enum Shape4 {
+  Circle(Double),
+  Rectangle(Double, Double)
+}
+
+var shape = Circle("radius")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected String, found Double
+  |
+6 | var shape = Circle("radius")
+  |                            ^
+
+
+// TEST: generic Optional<T> enum - correct usage
+enum OptionalInt {
+  Some(Int),
+  None
+}
+
+var x: OptionalInt = Some(5)
+// EXPECT:
+===========================
+>>> Found 2 type errors <<<
+===========================
+error: Duplicate enum variant 'Some'
+  |
+2 |   Some(Int),
+  |      ^
+error: Type mismatch: expected Optional<?2>, found OptionalInt
+  |
+6 | var x: OptionalInt = Some(5)
+  |     ^
+
+
+// TEST: Optional<T> shorthand Int? - assigning None
+var o: Int? = None
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Optional<?2>, found Int?
+  |
+1 | var o: Int? = None
+  |     ^
+
+
+// TEST: Optional<T> shorthand Int? - assigning wrong inner type
+var o2: Int? = Some("hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Optional<?2>, found Int?
+  |
+1 | var o2: Int? = Some("hi")
+  |      ^
+
+
+// TEST: Optional<T> - invalid use with non-optional type
+var n: Int = None
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Optional<?2>, found Int
+  |
+1 | var n: Int = None
+  |     ^
+
+
+// TEST: pattern match with wrong payload shape
+enum Shape5 {
+  Circle(Double),
+  Rectangle(Double, Double)
+}
+
+var v2 = Circle(1.0)
+var result2 = match v2 {
+  Circle(x, y) => x + y,
+  _ => 0.0
+}
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Enum variant 'Circle' expected 1 arguments, found 2
+  |
+8 |   Circle(x, y) => x + y,
+  |        ^

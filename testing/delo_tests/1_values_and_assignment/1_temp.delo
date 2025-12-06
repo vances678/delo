@@ -1,0 +1,193 @@
+// Test basic variables and arithmetic expressions
+var a: Int = 10
+var b: Double = 3.14
+var result: Double = a * b + 5.0
+print(a)
+print(b)
+print(result)
+
+// Test boolean operations
+var is_true: Bool = True
+var is_false: Bool = False
+var combined: Bool = is_true && !is_false
+print(is_true)
+print(is_false)
+print(combined)
+
+// Test string operations
+var greeting: String = "Hello"
+var message: String = greeting + ", World!"
+print(greeting)
+print(message)
+
+// Test if statements
+if (result > 20.0) {
+    var big_number: Int = 100
+    print(big_number)
+} else {
+    var small_number: Int = 10
+    print(small_number)
+}
+
+// Test while loops
+var counter: Int = 0
+while (counter < 5) {
+    counter = counter + 1
+    if (counter == 3) {
+        continue
+    }
+}
+print(counter)
+
+// Test array types
+var numbers: Array<Int> = [1, 2, 3, 4, 5]
+var names: Array<String> = ["Alice", "Bob", "Charlie"]
+// (no array-printing yet)
+
+// Test range types
+var int_range: Range<Int> = 1..10
+var double_range: Range<Double> = 0.0..5.5
+// (no range-printing yet)
+
+// Test for ranges
+var sum: Int = 0
+for (i in int_range) {
+    sum = sum + i
+}
+print(sum)
+
+var inclusive_range: InclusiveRange<Int> = 1..=3
+for (i in inclusive_range) {
+    sum = sum + i
+}
+print(sum)
+
+// Test optional types
+var maybe_int: Optional<Int> = Some(42)
+var maybe_string: Optional<String> = None
+
+// Test struct definitions
+struct Point {
+    x: Double,
+    y: Double
+}
+
+struct Box<T> {
+    value: T,
+    label: String
+}
+
+// Test struct usage
+var origin: Point = Point { x: 0.0, y: 0.0 }
+var int_box: Box<Int> = Box { value: 123, label: "Integer Box" }
+var string_box: Box<String> = Box { value: "Hello", label: "String Box" }
+// (no struct-printing yet; print fields manually if you want)
+
+// Test grouping and unary operations
+var grouped: Double = (a + b) * 2
+var negated: Int = -a
+var not_bool: Bool = !is_true
+print(grouped)
+print(negated)
+print(not_bool)
+
+// Test logical expressions
+var complex_logic: Bool = (result > 15.0 && is_true) || (counter >= 5 && is_false)
+print(complex_logic)
+
+// Test match expressions
+var from_maybe_int: Int = match maybe_int {
+    Some(x) => x * 2,
+    None => 0
+}
+print(from_maybe_int)
+
+var from_maybe_string: String = match maybe_string {
+    Some(s) => s,
+    _ => "default"
+}
+print(from_maybe_string)
+
+// Test functions
+fn add(a: Int, b: Int) {
+  a + b
+}
+add(1, 2)
+print(add(1, 2))
+
+fn add_annotated(a: Int, b: Int) -> Int {
+  a + b
+}
+add_annotated(1, 2)
+print(add_annotated(1, 2))
+
+// functions can have generic types
+fn add_generic<T>(a: T, b: Int) {
+  a + b
+}
+add_generic(1, 2)
+print(add_generic(1, 2))
+
+// anonymous functions are expressions and they have types
+var add_lambda = (a: Int, b: Int) -> Int {
+  a + b
+}
+add_lambda(1, 2) // 3 - add has type (Int, Int) -> Int
+print(add_lambda(1, 2))
+
+var base: Int = 10
+var add_base = (x: Int) -> Int {
+  base + x
+}
+add_base(5) // expect 15
+print(add_base(5))
+
+var factor: Int = 2
+var label: String = "scaled"
+var scale_and_label = (x: Int) -> Int {
+  // just to force both captured types into the env
+  // (label is unused at runtime but captured)
+  factor * x
+}
+scale_and_label(7) // expect 14
+print(scale_and_label(7))
+
+// closure
+fn make_adder(offset: Int) -> (Int) -> Int {
+  (x: Int) -> Int {
+    offset + x
+  }
+}
+
+var add10 = make_adder(10)
+add10(5) // expect 15
+print(add10(5))
+
+// fn apply_twice(f: (Int) -> Int, x: Int) -> Int {
+//   f(f(x))
+// }
+// var inc = (x: Int) -> Int { x + 1 }
+// apply_twice(inc, 5) // expect 7
+
+// higher order functions exist
+// fn map<T, U>(arr: Array<T>, f: (T) -> U) -> Array<U> {
+//   var result = []
+//   for (x in arr) {
+//     result += f(x)
+//   }
+//   result
+// }
+// var x = [1, 2, 3]
+// var y = map(x, (x: Int) { x * x })
+// print(y) // [1, 4, 9]
+
+// Test variable updates
+a = a + 1
+result = result * 2.0
+combined = !combined
+print(a)
+print(result)
+print(combined)
+
+// Final expression
+result + a

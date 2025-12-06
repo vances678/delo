@@ -1,0 +1,80 @@
+// TEST: print string (hello world)
+print("Hello, world!")
+// EXPECT:
+Hello, world!
+
+// TEST: print string (empty)
+print("")
+// EXPECT:
+
+// TEST: print string (number)
+print("123")
+// EXPECT:
+123
+
+// TEST: print integer
+print(1)
+// EXPECT:
+1
+
+// TEST: print decimal
+print(1.5)
+// EXPECT:
+1.5
+
+// TEST: print boolean (True)
+print(True)
+// EXPECT:
+True
+
+// TEST: print boolean (False)
+print(False)
+// EXPECT:
+False
+
+// TEST: unterminated string error (missing opening quote)
+print(hi")
+// EXPECT:
+==========================
+>>> Found 1 scan error <<<
+==========================
+error: Unterminated string
+
+// TEST: unterminated string error (missing closing quote)
+print("hi)
+// EXPECT:
+==========================
+>>> Found 1 scan error <<<
+==========================
+error: Unterminated string
+
+// TEST: missing opening parenthesis for expression error
+1 + 2)
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Unexpected token ())
+  |
+1 | 1 + 2)
+  |      ^
+
+// TEST: missing closing parenthesis for expression error
+(1 + 2
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected ')', found 'end of file'
+
+// TEST: unexpected character error
+print$("hi")
+// EXPECT:
+==========================
+>>> Found 1 scan error <<<
+==========================
+error: Unexpected character '$'
+  |
+1 | print$("hi")
+  |      ^
+  

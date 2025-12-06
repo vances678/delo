@@ -1,0 +1,162 @@
+// TEST: Int variable declaration and use
+var a: Int = 1
+print(a)
+// EXPECT:
+1
+
+// TEST: Double variable declaration and use
+var x: Double = 1.5
+print(x)
+// EXPECT:
+1.5
+
+// TEST: Bool variable declaration and use
+var b: Bool = True
+print(b)
+// EXPECT:
+True
+
+// TEST: String variable declaration and use
+var s: String = "hello"
+print(s)
+// EXPECT:
+hello
+
+// TEST: undefined variable type error
+print(a_undefined)
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Undefined variable (a_undefined)
+  |
+1 | print(a_undefined)
+  |                 ^
+
+// TEST: invalid operand type for unary minus (String)
+print(-"hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Invalid operand type String for operator '-'
+  |
+1 | print(-"hi")
+  |       ^
+
+// TEST: invalid operand types for addition (Int and String)
+print(1 + "hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Invalid operand types Int and String for operator '+'
+  |
+1 | print(1 + "hi")
+  |         ^
+
+// TEST: invalid operand types for subtraction (Int and String)
+print(1 - "hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Invalid operand types Int and String for operator '-'
+  |
+1 | print(1 - "hi")
+  |         ^
+
+// TEST: invalid operand types for multiplication (Int and String)
+print(1 * "hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Invalid operand types Int and String for operator '*'
+  |
+1 | print(1 * "hi")
+  |         ^
+
+// TEST: invalid operand types for division (Int and String)
+print(1 / "hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Invalid operand types Int and String for operator '/'
+  |
+1 | print(1 / "hi")
+  |         ^
+
+// TEST: invalid operand types for logical and (Bool && Int)
+var a: Int = 1
+while (a == 1 && (a = 2)) print(a)
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Invalid operand types Bool and Int for operator '&&'
+  |
+2 | while (a == 1 && (a = 2)) print(a)
+  |              ^
+
+// TEST: function argument count too few
+fn test(a: Int) {
+  print(a)
+}
+test()
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Expected 1 arguments, found 0
+  |
+4 | test()
+  |      ^
+
+// TEST: function argument count too many
+fn test2(a: Int) {
+  print(a)
+}
+test2(1, 2)
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Expected 1 arguments, found 2
+  |
+4 | test2(1, 2)
+  |           ^
+
+// TEST: cannot call string as function
+"hi"()
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Cannot call value of non-function type String
+  |
+1 | "hi"()
+  |      ^
+
+// TEST: cannot call number as function
+1()
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Cannot call value of non-function type Int
+  |
+1 | 1()
+  |   ^
+
+// TEST: cannot call boolean as function
+True()
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Cannot call value of non-function type Bool
+  |
+1 | True()
+  |      ^

@@ -1,0 +1,204 @@
+=============================================
+>>>>>>>>>> DELO INTERPRETER TESTS <<<<<<<<<<<
+=============================================
+
+---------------------------------------------
+>>> VALUES AND ASSIGNMENT
+---------------------------------------------
+>>> LITERALS
+| PASSED: print string (hello world)
+| PASSED: print string (empty)
+| PASSED: print string (number)
+| PASSED: print integer
+| PASSED: print decimal
+| PASSED: print boolean (True)
+| PASSED: print boolean (False)
+| PASSED: unterminated string error (missing opening quote)
+| PASSED: unterminated string error (missing closing quote)
+| PASSED: missing opening parenthesis for expression error
+| PASSED: missing closing parenthesis for expression error
+| PASSED: unexpected character error
+>>> TEMP
+>>> VARIABLES
+| PASSED: variable declaration
+| PASSED: variable declaration without initialization
+| PASSED: variable reassignment
+| PASSED: variable reassignment is right associative
+| PASSED: undefined global variable error
+| PASSED: undefined local variable error
+| PASSED: invalid variable name in declaration error
+| PASSED: missing variable name error
+| PASSED: missing expression in var declaration error
+| PASSED: invalid assignment target error
+| PASSED: duplicate parameter name error
+| PASSED: cannot assign to string
+| PASSED: cannot assign to integer
+| PASSED: cannot assign to double
+| PASSED: cannot assign to boolean (True)
+| PASSED: cannot assign to boolean (False)
+| PASSED: cannot assign to grouped variable
+>>> ENUMS
+| PASSED: undefined enum variant
+| PASSED: enum with payloads - too few arguments
+| PASSED: enum with payloads - too many arguments
+| PASSED: enum with payloads - wrong payload type
+| PASSED: generic Optional<T> enum - correct usage
+| PASSED: Optional<T> shorthand Int? - assigning None
+| PASSED: Optional<T> shorthand Int? - assigning wrong inner type
+| PASSED: Optional<T> - invalid use with non-optional type
+| PASSED: pattern match with wrong payload shape
+
+---------------------------------------------
+>>> OPERATORS
+---------------------------------------------
+>>> ARITHMETIC
+| PASSED: negative (integer)
+| PASSED: negative (decimal)
+| PASSED: negative invalid operand error (string)
+| PASSED: addition (integers)
+| PASSED: addition (decimals)
+| PASSED: addition (integer and decimal)
+| PASSED: addition (negative)
+| PASSED: addition invalid operands error (number and string)
+| PASSED: subtraction (integers)
+| PASSED: subtraction (decimals)
+| PASSED: subtraction (integer and decimal)
+| PASSED: subtraction (negative)
+| PASSED: subtraction invalid operands error (number and string)
+| PASSED: multiplication (integers)
+| PASSED: multiplication (decimals)
+| PASSED: multiplication (integer and decimal)
+| PASSED: multiplication (negative)
+| PASSED: multiplication invalid operands error (number and string)
+| PASSED: division (integers)
+| PASSED: division (decimals)
+| PASSED: division (integer and decimal)
+| PASSED: division (negative)
+| PASSED: division invalid operands error (number and string)
+>>> COMPARISON AND EQUALITY
+| PASSED: less than (True)
+| PASSED: less than (False)
+| PASSED: less than error (invalid operands: number and string)
+| PASSED: greater than (True)
+| PASSED: greater than (False)
+| PASSED: greater than error (invalid operands: number and string)
+| PASSED: less than or equal to (True)
+| PASSED: less than or equal to (False)
+| PASSED: less than or equal to error (invalid operands: number and string)
+| PASSED: greater than or equal to (True)
+| PASSED: greater than or equal to (False)
+| PASSED: greater than or equal to error (invalid operands: number and string)
+| PASSED: equality (number, True)
+| PASSED: equality (number, False)
+| PASSED: equality (string, True)
+| PASSED: equality (string, False)
+| PASSED: equality, no implicit conversion (number and string)
+| PASSED: inequality (number, True)
+| PASSED: inequality (number, False)
+| PASSED: inequality (string, True)
+| PASSED: inequality (string, False)
+| PASSED: inequality, no implicit conversion (number and string)
+>>> LOGICAL
+| PASSED: logical not (not True -> False)
+| PASSED: logical not (not False -> True)
+| PASSED: logical and (False && False -> False)
+| PASSED: logical and (True && False -> False)
+| PASSED: logical and (False && True -> False)
+| PASSED: logical and (True && True -> True)
+| PASSED: logical or (False || False -> False)
+| PASSED: logical or (True || False -> True)
+| PASSED: logical or (False || True -> True)
+| PASSED: logical or (True || True -> True)
+>>> PRECEDENCE AND GROUPING
+| PASSED: order of operations (multiplication before addition)
+| PASSED: order of operations (multiplication before subtraction)
+| PASSED: order of operations (division before addition)
+| PASSED: order of operations (division before subtraction)
+| PASSED: negative unary operator before multiplication
+| PASSED: negative unary operator before division
+| PASSED: same precedence operators are left associative
+| PASSED: grouping (grouped addition before multiplication)
+| PASSED: grouping (grouped subtraction before multiplication)
+| PASSED: grouping (grouped addition before division)
+| PASSED: grouping (grouped subtraction before division)
+| PASSED: nested grouping
+| PASSED: not unary operator before equality
+| PASSED: arithmetic before comparison
+| PASSED: arithmetic before equality
+| PASSED: comparison before equality
+| PASSED: comparison before logical
+| PASSED: equality before logical
+
+---------------------------------------------
+>>> CONTROL FLOW
+---------------------------------------------
+>>> IF
+| PASSED: if statement without block (True)
+| PASSED: if statement without block (False)
+| PASSED: if statement with block (True)
+| PASSED: if statement with block (False)
+| PASSED: if statement with else (True)
+| PASSED: if statement with else (False)
+| PASSED: if statement with else if (True)
+| PASSED: if statement with else if (False)
+| PASSED: ambiguous else is associated with innermost if
+| PASSED: missing opening parenthesis in if statement error
+| PASSED: missing closing parenthesis in if statement error
+>>> WHILE
+| PASSED: while loop without block
+| PASSED: while loop with block
+| PASSED: nested while loop
+| PASSED: while loop evaluates condition before body
+| PASSED: missing opening parenthesis in while statement error
+| PASSED: missing closing parenthesis in while statement error
+>>> FOR
+| PASSED: for loop without block
+| PASSED: for loop with block
+| PASSED: nested for loop
+| PASSED: fibonacci sequence example from book
+| PASSED: missing opening parenthesis in for statement error
+| PASSED: missing closing parenthesis in for statement error
+| PASSED: missing semicolon in for statement error
+
+---------------------------------------------
+>>> FUNCTIONS
+---------------------------------------------
+>>> FUNCTIONS
+| PASSED: error passing too few arguments to function
+| PASSED: error passing too many arguments to function
+| PASSED: missing opening bracket for function block error
+| PASSED: missing block closing bracket error
+| PASSED: missing function name error
+| PASSED: invalid function parameter name error
+| PASSED: missing function opening parenthesis error
+| PASSED: missing function closing parenthesis error
+| PASSED: cannot call string as function
+| PASSED: cannot call number as function
+| PASSED: cannot call boolean as function
+
+---------------------------------------------
+>>> TYPES
+---------------------------------------------
+>>> TYPE CHECKING
+| PASSED: Int variable declaration and use
+| PASSED: Double variable declaration and use
+| PASSED: Bool variable declaration and use
+| PASSED: String variable declaration and use
+| PASSED: undefined variable type error
+| PASSED: invalid operand type for unary minus (String)
+| PASSED: invalid operand types for addition (Int and String)
+| PASSED: invalid operand types for subtraction (Int and String)
+| PASSED: invalid operand types for multiplication (Int and String)
+| PASSED: invalid operand types for division (Int and String)
+| PASSED: invalid operand types for logical and (Bool && Int)
+| PASSED: function argument count too few
+| PASSED: function argument count too many
+| PASSED: cannot call string as function
+| PASSED: cannot call number as function
+| PASSED: cannot call boolean as function
+
+>>>>> TEST SUMMARY <<<<<
+Total Tests: 162
+Pass Rate: 100.00%
+Passed: 162
+Failed: 0

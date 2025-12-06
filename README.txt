@@ -1,6 +1,8 @@
 >>> OVERVIEW
-Delo is a time-traveling programming language. It cannot actually go back in time, but it is able to access and mutate variables from previous states of a program.
+Delo is a statically typed, compiled to c, time-traveling programming language. It cannot actually go back in time, but it is able to access and mutate variables from previous states of a program.
 Fun fact: The name Delo comes from DeLorean, the time-traveling car from Back to the Future.
+NOTE: due to complexity of static type checking and compiling to c, the time-traveling features have not been implemented yet. However, arrays, ranges, structs, enums, and pattern matching are all somewhat implemented
+The language currently handles basic lox functionality, in addition to supporting scanning, parsing, type checking, and compiling to c of many additional features.
 
 >>> PROJECT STRUCTURE
 - src/                          # contains the source code for the delo compiler (minus the test runner)
@@ -16,6 +18,7 @@ Fun fact: The name Delo comes from DeLorean, the time-traveling car from Back to
 - TEST_RESULTS.txt              # output from running tests (IMPORTANT)
 
 >>> BUILD INSTRUCTIONS
+- A c compiler (gcc, clang, cc, cl, clang-cl) must be installed on your system to compile delo programs
 - Rust must be installed on your system to build the delo compiler. If not installed, download and run the installer from https://rust-lang.org/tools/install/
 - This project was tested with rustc version 1.91.0 (f8297e351 2025-10-28)
 - The following commands should be run from the root directory (delo/)

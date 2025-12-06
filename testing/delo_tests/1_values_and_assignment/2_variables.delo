@@ -1,0 +1,188 @@
+// TEST: variable declaration
+var a = 1
+print(a)
+// EXPECT:
+1
+
+// TEST: variable declaration without initialization
+var a
+print(a)
+// EXPECT:
+===========================
+>>> Found 2 type errors <<<
+===========================
+error: Variable a must have a type annotation or an initializer
+  |
+1 | var a
+  |     ^
+error: Undefined variable (a)
+  |
+2 | print(a)
+  |       ^
+
+// TEST: variable reassignment
+var a = 1
+print(a)
+a = 2
+print(a)
+// EXPECT:
+1
+2
+
+// TEST: variable reassignment is right associative
+var c = 3
+var b = 2
+var a = 1
+a = b = c
+print(a)
+print(b)
+print(c)
+// EXPECT:
+3
+3
+3
+
+// TEST: undefined global variable error
+print(a)
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Undefined variable (a)
+  |
+1 | print(a)
+  |       ^
+
+// TEST: undefined local variable error
+{
+  print(a)
+}
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Undefined variable (a)
+  |
+2 |   print(a)
+  |         ^
+
+// TEST: invalid variable name in declaration error
+var (a) = 1
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected 'identifier', found '('
+  |
+1 | var (a) = 1
+  |     ^
+
+// TEST: missing variable name error
+var = 1
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected 'identifier', found '='
+  |
+1 | var = 1
+  |     ^
+
+// TEST: missing expression in var declaration error
+var a = 
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Unexpected token ()
+
+// TEST: invalid assignment target error
+1 = 2
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Invalid assignment target (=)
+  |
+1 | 1 = 2
+  |   ^
+
+// TEST: duplicate parameter name error
+fn test(a: Int, a: Int) {
+  print("hi")
+}
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Duplicate parameter 'a'
+  |
+1 | fn test(a: Int, a: Int) {
+  |                 ^
+
+// TEST: cannot assign to string
+"hello" = 1
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Invalid assignment target (=)
+  |
+1 | "hello" = 1
+  |         ^
+
+// TEST: cannot assign to integer
+123 = 1
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Invalid assignment target (=)
+  |
+1 | 123 = 1
+  |     ^
+
+// TEST: cannot assign to double
+123.123 = 1
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Invalid assignment target (=)
+  |
+1 | 123.123 = 1
+  |         ^
+
+// TEST: cannot assign to boolean (True)
+True = 1
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Bool, found Int
+  |
+1 | True = 1
+  |    ^
+
+// TEST: cannot assign to boolean (False)
+False = 1
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Bool, found Int
+  |
+1 | False = 1
+  |     ^
+
+// TEST: cannot assign to grouped variable
+var a = 1
+(a) = 2
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Invalid assignment target (=)
+  |
+2 | (a) = 2
+  |     ^

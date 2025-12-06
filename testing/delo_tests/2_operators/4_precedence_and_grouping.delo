@@ -1,0 +1,89 @@
+// TEST: order of operations (multiplication before addition)
+print(1 + 2 * 3)
+// EXPECT:
+7
+
+// TEST: order of operations (multiplication before subtraction)
+print(1 - 2 * 3)
+// EXPECT:
+-5
+
+// TEST: order of operations (division before addition)
+print(1 + 2 / 4)
+// EXPECT:
+1
+
+// TEST: order of operations (division before subtraction)
+print(1 - 2 / 4)
+// EXPECT:
+1
+
+// TEST: negative unary operator before multiplication
+print(1 * -2)
+// EXPECT:
+-2
+
+// TEST: negative unary operator before division
+print(1 / -2)
+// EXPECT:
+0
+
+// TEST: same precedence operators are left associative
+print(3 - 2 - 1)
+// EXPECT:
+0
+
+// TEST: grouping (grouped addition before multiplication)
+print((1 + 2) * 3)
+// EXPECT:
+9
+
+// TEST: grouping (grouped subtraction before multiplication)
+print((1 - 2) * 3)
+// EXPECT:
+-3
+
+// TEST: grouping (grouped addition before division)
+print((1 + 2) / 4)
+// EXPECT:
+0
+
+// TEST: grouping (grouped subtraction before division)
+print((1 - 2) / 4)
+// EXPECT:
+0
+
+// TEST: nested grouping
+print(1 / (2 * ((3 + 4) - 6)))
+// EXPECT:
+0 
+
+// TEST: not unary operator before equality
+print(False == !True)
+// EXPECT:
+True
+
+// TEST: arithmetic before comparison
+print(3 < 2 + 2)
+// EXPECT:
+True
+
+// TEST: arithmetic before equality
+print(3 == 1 + 2)
+// EXPECT:
+True
+
+// TEST: comparison before equality
+print(1 < 2 == 3 < 4)
+// EXPECT:
+True
+
+// TEST: comparison before logical
+print(1 < 2 && 3 < 3)
+// EXPECT:
+False
+
+// TEST: equality before logical
+print(1 == 2 || 3 == 3)
+// EXPECT:
+True

@@ -1,0 +1,145 @@
+// TEST: less than (True)
+print(1 < 2)
+// EXPECT:
+True
+
+// TEST: less than (False)
+print(2 < 1)
+// EXPECT:
+False
+
+// TEST: less than error (invalid operands: number and string)
+print(1 < "hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Int, found String
+  |
+1 | print(1 < "hi")
+  |         ^
+
+// TEST: greater than (True)
+print(2 > 1)
+// EXPECT:
+True
+
+// TEST: greater than (False)
+print(1 > 2)
+// EXPECT:
+False
+
+// TEST: greater than error (invalid operands: number and string)
+print(1 > "hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Int, found String
+  |
+1 | print(1 > "hi")
+  |         ^
+
+// TEST: less than or equal to (True)
+print(1 <= 2)
+// EXPECT:
+True
+
+// TEST: less than or equal to (False)
+print(2 <= 1)
+// EXPECT:
+False
+
+// TEST: less than or equal to error (invalid operands: number and string)
+print(1 <= "hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Int, found String
+  |
+1 | print(1 <= "hi")
+  |         ^
+
+// TEST: greater than or equal to (True)
+print(2 >= 1)
+// EXPECT:
+True
+
+// TEST: greater than or equal to (False)
+print(1 >= 2)
+// EXPECT:
+False
+
+// TEST: greater than or equal to error (invalid operands: number and string)
+print(1 >= "hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Int, found String
+  |
+1 | print(1 >= "hi")
+  |         ^
+
+// TEST: equality (number, True)
+print(1 == 1)
+// EXPECT:
+True
+
+// TEST: equality (number, False)
+print(1 == 2)
+// EXPECT:
+False
+
+// TEST: equality (string, True)
+print("cat" == "cat")
+// EXPECT:
+True
+
+// TEST: equality (string, False)
+print("cat" == "dog")
+// EXPECT:
+False
+
+// TEST: equality, no implicit conversion (number and string)
+print(1 == "1")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Int, found String
+  |
+1 | print(1 == "1")
+  |         ^
+
+// TEST: inequality (number, True)
+print(1 != 2)
+// EXPECT:
+True
+
+// TEST: inequality (number, False)
+print(1 != 1)
+// EXPECT:
+False
+
+// TEST: inequality (string, True)
+print("cat" != "dog")
+// EXPECT:
+True
+
+// TEST: inequality (string, False)
+print("cat" != "cat")
+// EXPECT:
+False
+
+// TEST: inequality, no implicit conversion (number and string)
+print(1 != "1")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Type mismatch: expected Int, found String
+  |
+1 | print(1 != "1")
+  |         ^

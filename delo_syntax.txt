@@ -1,3 +1,5 @@
+NOTE: THIS IS GOAL SYNTAX, SOME PARTS SUCH AS MAP AND TIME TRAVEL ARE ON THE ROADMAP
+
 ========================================
 >>> COMMENTS:
 ========================================

@@ -1,11 +1,9 @@
 use std::fs::{read_dir, read_to_string, remove_file, write};
 use std::io::{Error, ErrorKind};
 use std::process::Command;
-use std::env::temp_dir;
+use std::env::{temp_dir, current_dir};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::path::PathBuf;
-
-// TODO: compile delo code before running it
 
 static PATH_TO_TESTS: &str = "testing/delo_tests";
 
@@ -67,18 +65,86 @@ fn run_test(test: &Test) -> bool {
     let temp_path = temp_dir.join(format!("test_{}.delo", timestamp));
 
     write(&temp_path, &test.code).expect("Failed to write test code to temp file");
+
+    #[cfg(target_os = "windows")]
+    let delo_path = "target\\release\\delo.exe";
+    #[cfg(not(target_os = "windows"))]
+    let delo_path = "./target/release/delo";
     
-    let output = Command::new("./target/debug/delo").arg(temp_path.to_str().unwrap()).output().expect("Failed to run test");
+    let compilation_output = Command::new(delo_path).arg(temp_path.to_str().unwrap()).output().expect("Failed to run delo compiler");
 
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let program_name = temp_path.file_stem().unwrap().to_string_lossy().to_string();
+    let current_dir = current_dir().expect("Failed to get current directory");
 
-    let _ = remove_file(temp_path);
+    #[cfg(target_os = "windows")]
+    let executable_path = current_dir.join(format!("{}.exe", program_name));
+    #[cfg(not(target_os = "windows"))]
+    let executable_path = current_dir.join(&program_name);
 
-    // not ideal, but combining stdout and stderr is overly complicated and all tests are either completely stdout or stderr so this works for now 
-    let passed = stdout == test.expected || (!stderr.is_empty() && stderr == test.expected);
+    let c_path = current_dir.join(format!("{program_name}.c"));
 
-    passed
+    let compilation_stderr_raw = trim(&compilation_output.stderr);
+    let compilation_stderr = normalize_output(&normalize_error(&compilation_stderr_raw));
+    let expected = normalize_output(test.expected.trim());
+
+    if !compilation_output.status.success() {
+        let _ = remove_file(&temp_path);
+        let _ = remove_file(&c_path);
+        let _ = remove_file(&executable_path);
+
+        if compilation_stderr == expected {
+            return true;
+        } else {
+            println!("> EXPECTED OUTPUT:\n{}\n", expected);
+            println!("> ACTUAL OUTPUT:\n{}\n", compilation_stderr);
+            return false;
+        }
+    }
+
+    let program_output = Command::new(&executable_path).output().expect("Failed to run compiled program");
+    let program_stdout = normalize_output(&trim(&program_output.stdout));
+    let program_stderr = normalize_output(&trim(&program_output.stderr));
+
+    let _ = remove_file(&temp_path);
+    let _ = remove_file(&c_path);
+    let _ = remove_file(&executable_path);
+
+    if program_stdout == expected {
+        true
+    } else {
+        println!("> EXPECTED OUTPUT:\n{}\n", expected);
+        println!("> ACTUAL OUTPUT:\n{}\n", program_stdout);
+        if !program_stderr.is_empty() {
+            println!("> PROGRAM STDERR:\n{}\n", program_stderr);
+        }
+        false
+    }
+}
+
+fn trim(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).trim().to_string()
+}
+
+fn normalize_error(string: &str) -> String {
+    string.lines()
+        .map(|line| {
+            if line.trim_start().starts_with("@ ") {
+                ""
+            } else {
+                line
+            }
+        })
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn normalize_output(string: &str) -> String {
+    string.replace("\r\n", "\n")
+     .lines()
+     .map(|line| line.trim_end())
+     .collect::<Vec<_>>()
+     .join("\n")
 }
 
 fn get_tests() -> Result<Vec<Section>, Error> {

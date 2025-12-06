@@ -1,0 +1,92 @@
+// TEST: if statement without block (True)
+if (True) print("hi")
+// EXPECT:
+hi
+
+// TEST: if statement without block (False)
+if (False) print("hi")
+// EXPECT:
+
+// TEST: if statement with block (True)
+if (True) {
+    print("hi")
+}
+// EXPECT:
+hi
+
+// TEST: if statement with block (False)
+if (False) {
+    print("hi")
+}
+// EXPECT:
+
+// TEST: if statement with else (True)
+if (True) {
+    print("hi")
+} else {
+    print("else")
+}
+// EXPECT:
+hi
+
+// TEST: if statement with else (False)
+if (False) {
+    print("hi")
+} else {
+    print("else")
+}
+// EXPECT:
+else
+
+// TEST: if statement with else if (True)
+if (False) {
+    print("hi")
+} else if (True) {
+    print("else if")
+} else {
+    print("else")
+}
+// EXPECT:
+else if
+
+// TEST: if statement with else if (False)
+if (False) {
+    print("hi")
+} else if (False) {
+    print("else if")
+} else {
+    print("else")
+}
+// EXPECT:
+else
+
+// TEST: ambiguous else is associated with innermost if
+if (True) if (False) print("inner") else print("outer")
+// EXPECT:
+outer
+
+// TEST: missing opening parenthesis in if statement error
+if True) {
+  print("hi")
+}
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected '(', found 'identifier' (True)
+  |
+1 | if True) {
+  |       ^
+
+// TEST: missing closing parenthesis in if statement error
+if (True {
+  print("hi")
+}
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected ':', found '('
+  |
+2 |   print("hi")
+  |        ^

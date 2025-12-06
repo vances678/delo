@@ -1,0 +1,133 @@
+// TEST: error passing too few arguments to function
+fn test(a: Int) {
+  print(a)
+}
+test()
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Expected 1 arguments, found 0
+  |
+4 | test()
+  |      ^
+
+// TEST: error passing too many arguments to function
+fn test(a: Int) {
+  print(a)
+}
+test("hi", "hi hi")
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Expected 1 arguments, found 2
+  |
+4 | test("hi", "hi hi")
+  |                   ^
+
+// TEST: missing opening bracket for function block error
+fn test() 
+  print("hi")
+}
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected '{', found 'identifier' (print)
+  |
+2 |   print("hi")
+  |       ^
+
+// TEST: missing block closing bracket error
+{
+  print("hi")
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected '}', found 'end of file'
+
+// TEST: missing function name error
+fn () {
+  print("hi")
+}
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected 'identifier', found '('
+  |
+1 | fn () {
+  |    ^
+
+// TEST: invalid function parameter name error
+fn test(+) {
+  print("hi")
+}
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected 'identifier', found '+'
+  |
+1 | fn test(+) {
+  |         ^
+
+// TEST: missing function opening parenthesis error
+fn test) {
+  print("hi")
+}
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected '(', found ')'
+  |
+1 | fn test) {
+  |        ^
+
+// TEST: missing function closing parenthesis error
+fn test(a {
+  print("hi")
+// EXPECT:
+===========================
+>>> Found 1 parse error <<<
+===========================
+error: Expected ':', found '{'
+  |
+1 | fn test(a {
+  |           ^
+
+// TEST: cannot call string as function
+"hi"()
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Cannot call value of non-function type String
+  |
+1 | "hi"()
+  |      ^
+
+// TEST: cannot call number as function
+1()
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Cannot call value of non-function type Int
+  |
+1 | 1()
+  |   ^
+
+// TEST: cannot call boolean as function
+True()
+// EXPECT:
+==========================
+>>> Found 1 type error <<<
+==========================
+error: Cannot call value of non-function type Bool
+  |
+1 | True()
+  |      ^
