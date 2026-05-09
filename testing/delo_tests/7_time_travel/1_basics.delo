@@ -1,0 +1,111 @@
+// TEST: time-travel absolute reads
+var x: Int = 5
+x = x + 1
+x = x + 1
+print(x)
+print(x@=0)
+print(x@=1)
+print(x@=2)
+// EXPECT:
+7
+5
+6
+7
+
+// TEST: time-travel relative reads
+var x: Int = 5
+x = x + 1
+x = x + 1
+print(x@-0)
+print(x@-1)
+print(x@-2)
+// EXPECT:
+7
+6
+5
+
+// TEST: absolute write with ripple
+var x: Int = 5
+x = x + 1
+x = x + 1
+print(x)
+x@=0 = 100
+print(x)
+print(x@=0)
+print(x@=1)
+print(x@=2)
+// EXPECT:
+7
+102
+100
+101
+102
+
+// TEST: relative write with ripple
+var x: Int = 0
+x = x + 10
+x = x + 20
+x = x + 30
+print(x)
+x@-2 = 5
+print(x)
+print(x@=0)
+print(x@=1)
+print(x@=2)
+print(x@=3)
+// EXPECT:
+60
+55
+0
+5
+25
+55
+
+// TEST: write to state 0 ripples through entire history
+var x: Int = 1
+x = x * 2
+x = x * 3
+x = x * 4
+print(x)
+x@=0 = 10
+print(x)
+// EXPECT:
+24
+240
+
+// TEST: write to last state (no further ripple)
+var x: Int = 1
+x = x + 1
+x = x + 1
+print(x)
+x@=2 = 99
+print(x)
+print(x@=0)
+print(x@=1)
+print(x@=2)
+// EXPECT:
+3
+99
+1
+2
+99
+
+// TEST: time-travel read in RHS of regular assignment
+var x: Int = 10
+x = x + 5
+x = x + 5
+var y: Int = x@=0
+print(y)
+// EXPECT:
+10
+
+// TEST: time-travel read in RHS of time-travel write
+var x: Int = 10
+x = x + 5
+x = x + 5
+x@=2 = x@=0 * 2
+print(x)
+print(x@=2)
+// EXPECT:
+20
+20

@@ -66,16 +66,16 @@ error: Invalid operand types Int and String for operator '-'
 1 | print(1 - "hi")
   |         ^
 
-// TEST: invalid operand types for multiplication (Int and String)
-print(1 * "hi")
+// TEST: invalid operand types for multiplication (String and String)
+print("a" * "b")
 // EXPECT:
 ==========================
 >>> Found 1 type error <<<
 ==========================
-error: Invalid operand types Int and String for operator '*'
+error: Invalid operand types String and String for operator '*'
   |
-1 | print(1 * "hi")
-  |         ^
+1 | print("a" * "b")
+  |           ^
 
 // TEST: invalid operand types for division (Int and String)
 print(1 / "hi")

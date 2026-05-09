@@ -1,0 +1,22 @@
+// TEST: lambda captures tracked var, sees post-ripple value
+var x: Int = 10
+x = x + 5
+var get_x = ((dummy: Int) -> Int { x })
+print(get_x(0))
+x@=0 = 100
+print(get_x(0))
+// EXPECT:
+15
+105
+
+// TEST: lambda captures and reads time-travel state
+var x: Int = 10
+x = x + 5
+x = x + 5
+var first_state = ((dummy: Int) -> Int { x@=0 })
+print(first_state(0))
+x@=0 = 50
+print(first_state(0))
+// EXPECT:
+10
+50

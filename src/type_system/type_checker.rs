@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::ast::token::{Literal, Token, TokenType};
 use crate::ast::expr::{Expr, MatchCase, Pattern};
-use crate::ast::stmt::{EnumVariant, FunctionStmt, Stmt};
+use crate::ast::stmt::{EnumVariant, FunctionStmt, Stmt, VariableBinding};
 use crate::error::TypeError;
 use crate::type_system::types::TypeExpr;
 use crate::type_system::unifier::Unifier;
@@ -83,11 +83,26 @@ impl TypeEnvironment {
     // }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum BuiltinCallType {
+    ArrayLiteral,
+    RangeLiteral { is_inclusive: bool },
+    MapLiteral,
+    Map,
+    Filter,
+    Foldl,
+    Foldr,
+    Print,
+}
+
 #[derive(Default)]
 pub struct TypeInfo {
     pub expr_types: HashMap<*const Expr, TypeExpr>,
     pub function_types: HashMap<String, TypeExpr>,
-    pub lambda_captures: HashMap<*const Expr, Vec<(String, TypeExpr)>>
+    pub lambda_captures: HashMap<*const Expr, Vec<(String, TypeExpr)>>,
+    pub builtin_calls: HashMap<*const Expr, BuiltinCallType>,
+    pub call_type_arguments: HashMap<*const Expr, Vec<TypeExpr>>,
+    pub tracked_vars: HashSet<String>,
 }
 
 pub struct TypeChecker {
@@ -96,6 +111,7 @@ pub struct TypeChecker {
     loop_depth: usize,
     lambda_captures_stack: Vec<Vec<(String, TypeExpr)>>,
     lambda_locals_stack: Vec<HashSet<String>>,
+    user_functions: HashMap<String, Rc<FunctionStmt>>,
     unifier: Unifier,
     types: TypeInfo,
     errors: Vec<TypeError>
@@ -112,17 +128,13 @@ impl TypeChecker {
             loop_depth: 0,
             lambda_captures_stack: Vec::new(),
             lambda_locals_stack: Vec::new(),
+            user_functions: HashMap::new(),
             unifier: Unifier::new(),
-            types: TypeInfo {
-                expr_types: HashMap::new(),
-                function_types: HashMap::new(),
-                lambda_captures: HashMap::new(),
-            },
+            types: TypeInfo::default(),
             errors: Vec::new()
         };
 
         type_checker.inject_builtin_enums().unwrap();
-        type_checker.inject_builtin_functions().unwrap();
 
         type_checker
     }
@@ -159,12 +171,12 @@ impl TypeChecker {
 
     fn check_stmt(&mut self, stmt: &Stmt) -> Result<(), TypeError> {
         match stmt {
-            Stmt::Variable { identifier, type_annotation, initializer } => self.check_var(identifier, type_annotation, initializer),
+            Stmt::Variable { binding, type_annotation, initializer } => self.check_var(binding, type_annotation, initializer),
             Stmt::Enum { identifier, type_parameters, variants } => self.check_enum(identifier, type_parameters, variants),
             Stmt::Struct { identifier, type_parameters, fields } => self.check_struct(identifier, type_parameters, fields),
             Stmt::If { if_token, condition, then_branch, else_branch } => self.check_if(if_token, condition, then_branch, else_branch),
             Stmt::While { while_token, condition, body } => self.check_while(while_token, condition, body),
-            Stmt::ForRange { identifier, range, body } => self.check_for_range(identifier, range, body),
+            Stmt::ForIn { binding, iterable, body } => self.check_for_in(binding, iterable, body),
             Stmt::Function(function) => self.check_function(function),
             Stmt::Block(statements) => self.check_block(statements),
             Stmt::Expression(expr) => {
@@ -186,35 +198,73 @@ impl TypeChecker {
         }
     }
 
-    fn check_var(&mut self, identifier: &Token, type_annotation: &Option<TypeExpr>, initializer: &Option<Expr>) -> Result<(), TypeError> {
+    fn check_var(&mut self, binding: &VariableBinding, type_annotation: &Option<TypeExpr>, initializer: &Option<Expr>) -> Result<(), TypeError> {
         let initializer_type = if let Some(initializer_expr) = initializer {
             Some(self.check_expr(initializer_expr)?)
         } else {
             None
         };
 
+        let first_token = binding.first_token();
+
         let var_type = match (type_annotation, initializer_type) {
             (Some(annotation), Some(initializer)) => {
-                self.unifier.unify_at(&initializer, &annotation, identifier)?
+                self.unifier.unify_at(&initializer, &annotation, first_token)?
             }
             (Some(annotation), None) => annotation.clone(),
             (None, Some(initializer)) => initializer,
             (None, None) => {
-                return Err(TypeError::MissingTypeAnnotationAndInitializer { 
-                    line: identifier.line, 
-                    column: identifier.column, 
-                    identifier: identifier.lexeme.clone()  
+                let lexeme = match binding {
+                    VariableBinding::Identifier(token) => token.lexeme.clone(),
+                    VariableBinding::Tuple { .. } => "(tuple)".to_string(),
+                };
+                return Err(TypeError::MissingTypeAnnotationAndInitializer {
+                    line: first_token.line,
+                    column: first_token.column,
+                    identifier: lexeme,
                 });
             }
         };
 
-        self.environment.insert(identifier, var_type);
-        
-        if let Some(lambda_locals) = self.lambda_locals_stack.last_mut() {
-            lambda_locals.insert(identifier.lexeme.clone());
-        }
+        self.bind_variable(binding, &var_type)?;
 
         Ok(())
+    }
+
+    fn bind_variable(&mut self, binding: &VariableBinding, var_type: &TypeExpr) -> Result<(), TypeError> {
+        match binding {
+            VariableBinding::Identifier(token) => {
+                self.environment.insert(token, var_type.clone());
+                if let Some(lambda_locals) = self.lambda_locals_stack.last_mut() {
+                    lambda_locals.insert(token.lexeme.clone());
+                }
+                Ok(())
+            }
+            VariableBinding::Tuple { elements, left_paren } => {
+                let resolved = self.unifier.apply_substitutions(var_type);
+                match resolved {
+                    TypeExpr::Tuple { element_types } => {
+                        if element_types.len() != elements.len() {
+                            return Err(TypeError::TupleArityMismatch {
+                                line: left_paren.line,
+                                column: left_paren.column,
+                                expected: element_types.len(),
+                                found: elements.len(),
+                            });
+                        }
+                        for (sub_binding, sub_type) in elements.iter().zip(element_types.iter()) {
+                            self.bind_variable(sub_binding, sub_type)?;
+                        }
+                        Ok(())
+                    }
+                    other => Err(TypeError::DestructureRequiresTuple {
+                        line: left_paren.line,
+                        column: left_paren.column,
+                        target_type: other,
+                    }),
+                }
+            }
+        }
     }
 
     fn check_enum(&mut self, identifier: &Token, type_parameters: &Vec<Token>, variants: &Vec<EnumVariant>) -> Result<(), TypeError> {
@@ -227,7 +277,6 @@ impl TypeChecker {
             identifier: identifier.clone(),
             type_parameters: Some(type_parameters),
             type_arguments: Vec::new(),
-            is_optional: false,
             enum_variants: Some(variants.clone()),
             struct_fields: None,
         };
@@ -255,7 +304,6 @@ impl TypeChecker {
             identifier: identifier.clone(),
             type_parameters: Some(new_type_parameters),
             type_arguments: Vec::new(),
-            is_optional: false,
             enum_variants: None,
             struct_fields: Some(instantiated_fields),
         };
@@ -304,37 +352,46 @@ impl TypeChecker {
         result
     }
 
-    fn check_for_range(&mut self, identifier: &Token, range: &Expr, body: &Stmt) -> Result<(), TypeError> {
-        let range_type = self.check_expr(range)?;
+    fn check_for_in(&mut self, binding: &VariableBinding, iterable: &Expr, body: &Stmt) -> Result<(), TypeError> {
+        let iterable_type = self.check_expr(iterable)?;
+        let first_token = binding.first_token();
 
-        match range_type {
-            TypeExpr::Named { identifier: type_identifier, mut type_arguments, .. }
-                if (type_identifier.lexeme == "Range" || type_identifier.lexeme == "InclusiveRange") && type_arguments.len() == 1 =>
+        let element_type = match &iterable_type {
+            TypeExpr::Named { identifier: type_identifier, type_arguments, .. }
+                if (type_identifier.lexeme == "Range" || type_identifier.lexeme == "InclusiveRange" || type_identifier.lexeme == "Array")
+                    && type_arguments.len() == 1 =>
             {
-                let element_type = type_arguments.remove(0);
-
-                self.environment.push_scope();
-                self.environment.insert(identifier, element_type);
-
-                self.loop_depth += 1;
-                let result = (|| { 
-                    self.check_stmt(body)
-                })();
-                self.loop_depth -= 1;
-
-                self.environment.pop_scope();
-
-                result
+                type_arguments[0].clone()
             }
-            _ => Err(TypeError::InvalidForRangeTarget {
-                line: identifier.line,
-                column: identifier.column,
-                target_type: range_type,
+            TypeExpr::Named { identifier: type_identifier, type_arguments, .. }
+                if type_identifier.lexeme == "Map" && type_arguments.len() == 2 =>
+            {
+                TypeExpr::Tuple {
+                    element_types: vec![type_arguments[0].clone(), type_arguments[1].clone()],
+                }
+            }
+            _ => return Err(TypeError::InvalidForInTarget {
+                line: first_token.line,
+                column: first_token.column,
+                target_type: iterable_type,
             }),
-        }
+        };
+
+        self.environment.push_scope();
+        self.bind_variable(binding, &element_type)?;
+
+        self.loop_depth += 1;
+        let result = self.check_stmt(body);
+        self.loop_depth -= 1;
+
+        self.environment.pop_scope();
+
+        result
     }
 
     fn check_function(&mut self, function: &Rc<FunctionStmt>) -> Result<(), TypeError> {
+        self.user_functions.insert(function.identifier.lexeme.clone(), function.clone());
+
         let new_type_parameters: Vec<TypeExpr> = function.type_parameters.iter().map(|_| self.unifier.new_type_var()).collect();
         
         let parameter_types: Vec<TypeExpr> = function.parameters
@@ -402,6 +459,7 @@ impl TypeChecker {
             Expr::Literal(literal) => self.check_literal_expr(literal),
             Expr::ArrayLiteral { elements, left_bracket } => self.check_array_literal_expr(elements, left_bracket),
             Expr::MapLiteral { elements, left_brace } => self.check_map_literal_expr(elements, left_brace),
+            Expr::TupleLiteral { elements, .. } => self.check_tuple_literal_expr(elements),
             Expr::RangeLiteral { start, end, is_inclusive, range_token } => self.check_range_literal_expr(start, end, is_inclusive, range_token),
             Expr::Variable(identifier) => self.check_variable_expr(identifier),
             Expr::StructInstantiation { identifier, fields } => self.check_struct_instantiation_expr(identifier, fields),
@@ -413,27 +471,7 @@ impl TypeChecker {
             Expr::Unary { operator, right } => self.check_unary_expr(operator, right),
             Expr::Binary { left, operator, right } => self.check_binary_expr(left, operator, right),
             Expr::Logical { left, operator, right } => self.check_logical_expr(left, operator, right),
-            Expr::Call { callee, paren, arguments } => {
-                if let Expr::Variable(ref identifier) = **callee {
-                    if identifier.lexeme == "print" {
-                        if arguments.len() != 1 {
-                            return Err(TypeError::ArgumentCountMismatch {
-                                line: identifier.line,
-                                column: identifier.column,
-                                expected: 1,
-                                found: arguments.len(),
-                            });
-                        }
-
-                        self.check_expr(&arguments[0])?;
-                       
-                        let void_type = self.create_void_type(identifier.line, identifier.column);
-                        return Ok(void_type);
-                    }
-                }
-
-                self.check_call_expr(callee, paren, arguments) 
-            },
+            Expr::Call { callee, paren, arguments } => self.check_call_expr(expr, callee, paren, arguments),
             Expr::If { if_token, condition, then_branch, else_branch } => self.check_if_expr(if_token, condition, then_branch, else_branch),
             Expr::Match { match_token, subject, cases } => self.check_match_expr(match_token, subject, cases),
             Expr::Lambda { parameters, return_type, body } => {
@@ -482,42 +520,52 @@ impl TypeChecker {
         }
     }
 
+    fn check_tuple_literal_expr(&mut self, elements: &Vec<Expr>) -> Result<TypeExpr, TypeError> {
+        if elements.is_empty() {
+            return Ok(self.create_void_type(0, 0));
+        }
+        let mut element_types = Vec::with_capacity(elements.len());
+        for element in elements {
+            element_types.push(self.check_expr(element)?);
+        }
+        Ok(TypeExpr::Tuple { element_types })
+    }
+
     fn check_array_literal_expr(&mut self, elements: &Vec<Expr>, left_bracket: &Token) -> Result<TypeExpr, TypeError> {
         if elements.is_empty() {
-            return Err(TypeError::EmptyArrayWithoutTypeAnnotation { 
-                line: left_bracket.line, 
-                column: left_bracket.column 
-            });
+            let element_type = self.unifier.new_type_var();
+            return Ok(self.create_array_type(left_bracket.line, left_bracket.column, element_type));
         }
-        
+
         let mut element_type = self.check_expr(&elements[0])?;
         for element in elements.iter().skip(1) {
             let current_type = self.check_expr(element)?;
             element_type = self.unifier.unify_at(&element_type, &current_type, left_bracket)?;
         }
-        
+
         Ok(self.create_array_type(left_bracket.line, left_bracket.column, element_type))
     }
 
     fn check_map_literal_expr(&mut self, elements: &Vec<(Expr, Expr)>, left_brace: &Token) -> Result<TypeExpr, TypeError> {
         if elements.is_empty() {
-            return Err(TypeError::EmptyMapWithoutTypeAnnotation { 
-                line: left_brace.line, 
-                column: left_brace.column 
-            });
+            let key_type = self.unifier.new_type_var();
+            let value_type = self.unifier.new_type_var();
+            return Ok(self.create_map_type(left_brace.line, left_brace.column, key_type, value_type));
         }
-        
+
         let (first_key, first_value) = &elements[0];
         let mut key_type = self.check_expr(first_key)?;
         let mut value_type = self.check_expr(first_value)?;
-        
+
         for (key, value) in elements.iter().skip(1) {
             let current_key_type = self.check_expr(key)?;
             let current_value_type = self.check_expr(value)?;
             key_type = self.unifier.unify_at(&key_type, &current_key_type, left_brace)?;
             value_type = self.unifier.unify_at(&value_type, &current_value_type, left_brace)?;
         }
-        
+
+        self.validate_map_key_type(&key_type, left_brace)?;
+
         Ok(self.create_map_type(left_brace.line, left_brace.column, key_type, value_type))
     }
 
@@ -547,22 +595,22 @@ impl TypeChecker {
                 }
             }
 
-            return Ok(type_expression);
+            return Ok(self.unifier.instantiate_type(&type_expression));
         }
 
         if let Some(enum_template) = self.enum_variants.get(&identifier.lexeme) {
             let mut enum_type = self.unifier.instantiate_type(enum_template);
 
-            
-            if let TypeExpr::Named { identifier, type_parameters, type_arguments, is_optional, enum_variants, struct_fields } = enum_type {
+
+            if let TypeExpr::Named { identifier, type_parameters, type_arguments, enum_variants, struct_fields } = enum_type {
                 let mut type_arguments = type_arguments;
                 if type_arguments.is_empty() {
                     if let Some(parameters) = &type_parameters {
-                        type_arguments = parameters.iter().map(|_| self.unifier.new_type_var()).collect();
+                        type_arguments = parameters.clone();
                     }
                 }
 
-                enum_type = TypeExpr::Named { identifier, type_parameters, type_arguments, is_optional, enum_variants, struct_fields }
+                enum_type = TypeExpr::Named { identifier, type_parameters, type_arguments, enum_variants, struct_fields }
             }
             
 
@@ -600,16 +648,16 @@ impl TypeChecker {
 
         let mut struct_type = self.unifier.instantiate_type(&struct_template);
 
-        if let TypeExpr::Named { identifier, type_parameters, type_arguments, is_optional, enum_variants, struct_fields } = struct_type
+        if let TypeExpr::Named { identifier, type_parameters, type_arguments, enum_variants, struct_fields } = struct_type
         {
             let mut type_arguments = type_arguments;
             if type_arguments.is_empty() {
                 if let Some(parameters) = &type_parameters {
-                    type_arguments = parameters.iter().map(|_| self.unifier.new_type_var()).collect(); 
+                    type_arguments = parameters.clone();
                 }
             }
 
-            struct_type = TypeExpr::Named { identifier, type_parameters, type_arguments, is_optional, enum_variants, struct_fields };
+            struct_type = TypeExpr::Named { identifier, type_parameters, type_arguments, enum_variants, struct_fields };
         }
 
         let declared_fields = match &struct_type {
@@ -693,9 +741,9 @@ impl TypeChecker {
 
             TypeExpr::Named { identifier, type_arguments, .. } if identifier.lexeme == "Map" => {
                 if type_arguments.len() != 2 {
-                    return Err(TypeError::InvalidIndexTarget { 
-                        line: left_bracket.line, 
-                        column: left_bracket.column, 
+                    return Err(TypeError::InvalidIndexTarget {
+                        line: left_bracket.line,
+                        column: left_bracket.column,
                         target_type,
                     });
                 }
@@ -703,6 +751,7 @@ impl TypeChecker {
                 let key_type = type_arguments[0].clone();
                 let expected_value_type = type_arguments[1].clone();
 
+                self.validate_map_key_type(&key_type, left_bracket)?;
                 self.unifier.unify_at(&index_type, &key_type, left_bracket)?;
                 self.unifier.unify_at(&value_type, &expected_value_type, left_bracket)?;
                 Ok(expected_value_type)
@@ -716,18 +765,25 @@ impl TypeChecker {
         }
     }
 
+    fn track_target_var(&mut self, target: &Expr) {
+        if let Expr::Variable(token) = target {
+            self.types.tracked_vars.insert(token.lexeme.clone());
+        }
+    }
+
     fn check_assign_time_travel_absolute_expr(&mut self, target: &Box<Expr>, index: &Box<Expr>, value: &Box<Expr>, at_token: &Token) -> Result<TypeExpr, TypeError> {
+        self.track_target_var(target);
         let target_type = self.check_expr(target)?;
         let index_type = self.check_expr(index)?;
         let value_type = self.check_expr(value)?;
 
         match index_type {
             TypeExpr::Named { identifier, .. } if identifier.lexeme == "Int" => {}
-            _ => return Err(TypeError::InvalidIndexType { 
-                line: at_token.line, 
-                column: at_token.column, 
-                target_type, 
-                index_type 
+            _ => return Err(TypeError::InvalidIndexType {
+                line: at_token.line,
+                column: at_token.column,
+                target_type,
+                index_type
             }),
         }
 
@@ -735,17 +791,18 @@ impl TypeChecker {
     }
 
     fn check_assign_time_travel_relative_expr(&mut self, target: &Box<Expr>, offset: &Box<Expr>, value: &Box<Expr>, at_token: &Token) -> Result<TypeExpr, TypeError> {
+        self.track_target_var(target);
         let target_type = self.check_expr(target)?;
         let offset_type = self.check_expr(offset)?;
         let value_type  = self.check_expr(value)?;
 
         match offset_type {
             TypeExpr::Named { identifier, .. } if identifier.lexeme == "Int" => {}
-            _ => return Err(TypeError::InvalidIndexType { 
-                line: at_token.line, 
-                column: at_token.column, 
-                target_type, 
-                index_type: offset_type 
+            _ => return Err(TypeError::InvalidIndexType {
+                line: at_token.line,
+                column: at_token.column,
+                target_type,
+                index_type: offset_type
             }),
         }
 
@@ -796,7 +853,7 @@ impl TypeChecker {
         let right_type = self.check_expr(right)?;
 
         match operator.token_type {
-            TokenType::Plus | TokenType::Minus | TokenType::Star | TokenType::Slash | TokenType::Percent => {
+            TokenType::Plus | TokenType::Minus | TokenType::Star | TokenType::Slash | TokenType::Percent | TokenType::Caret => {
                 if operator.token_type == TokenType::Plus {
                     if let (
                         TypeExpr::Named { identifier: left_identifier, .. },
@@ -804,6 +861,48 @@ impl TypeChecker {
                     ) = (&left_type, &right_type) {
                         if left_identifier.lexeme == "String" && right_identifier.lexeme == "String" {
                             return Ok(left_type)
+                        }
+                    }
+                }
+
+                if operator.token_type == TokenType::Star {
+                    if let (
+                        TypeExpr::Named { identifier: left_identifier, .. },
+                        TypeExpr::Named { identifier: right_identifier, .. },
+                    ) = (&left_type, &right_type) {
+                        let left_name = left_identifier.lexeme.as_str();
+                        let right_name = right_identifier.lexeme.as_str();
+                        if (left_name == "String" && right_name == "Int") || (left_name == "Int" && right_name == "String") {
+                            return Ok(if left_name == "String" { left_type } else { right_type });
+                        }
+                    }
+
+                    match (&left_type, &right_type) {
+                        (TypeExpr::Named { identifier: l_id, type_arguments: l_args, .. },
+                         TypeExpr::Named { identifier: r_id, .. })
+                            if l_id.lexeme == "Array" && l_args.len() == 1 && r_id.lexeme == "Int" =>
+                        {
+                            return Ok(left_type);
+                        }
+                        (TypeExpr::Named { identifier: l_id, .. },
+                         TypeExpr::Named { identifier: r_id, type_arguments: r_args, .. })
+                            if l_id.lexeme == "Int" && r_id.lexeme == "Array" && r_args.len() == 1 =>
+                        {
+                            return Ok(right_type);
+                        }
+                        _ => {}
+                    }
+                }
+
+                if operator.token_type == TokenType::Plus {
+                    if let (
+                        TypeExpr::Named { identifier: l_id, type_arguments: l_args, .. },
+                        TypeExpr::Named { identifier: r_id, type_arguments: r_args, .. },
+                    ) = (&left_type, &right_type) {
+                        if l_id.lexeme == "Array" && r_id.lexeme == "Array"
+                            && l_args.len() == 1 && r_args.len() == 1 {
+                            self.unifier.unify_at(&l_args[0], &r_args[0], operator)?;
+                            return Ok(left_type);
                         }
                     }
                 }
@@ -846,8 +945,27 @@ impl TypeChecker {
             }
             TokenType::EqualEqual | TokenType::ExclamationEqual | TokenType::Less | TokenType::LessEqual | TokenType::Greater | TokenType::GreaterEqual => {
                 self.unifier.unify_at(&left_type, &right_type, operator)?;
-                
+
                 Ok(self.create_bool_type(operator.line, operator.column))
+            }
+            TokenType::QuestionQuestion => {
+                let unified_left = self.unifier.apply_substitutions(&left_type);
+
+                if let TypeExpr::Named { identifier, type_arguments, .. } = &unified_left {
+                    if identifier.lexeme == "Optional" && type_arguments.len() == 1 {
+                        let inner_type = type_arguments[0].clone();
+                        self.unifier.unify_at(&right_type, &inner_type, operator)?;
+                        return Ok(inner_type);
+                    }
+                }
+
+                Err(TypeError::InvalidBinaryOperands {
+                    line: operator.line,
+                    column: operator.column,
+                    operator: operator.lexeme.clone(),
+                    left_type,
+                    right_type,
+                })
             }
             _ => Err(TypeError::InvalidBinaryOperands {
                 line: operator.line,
@@ -879,8 +997,25 @@ impl TypeChecker {
         }
     }
 
-    fn check_call_expr(&mut self, callee: &Box<Expr>, paren: &Token, arguments: &Vec<Expr>) -> Result<TypeExpr, TypeError> {
+    fn check_call_expr(&mut self, call_expr: &Expr, callee: &Box<Expr>, paren: &Token, arguments: &Vec<Expr>) -> Result<TypeExpr, TypeError> {
+        if let Expr::Variable(ident) = callee.as_ref() {
+            if self.environment.lookup(ident).is_none() {
+                if let Some((kind, result_type)) = self.try_builtin_call(&ident.lexeme, arguments, paren)? {
+                    self.types.builtin_calls.insert(call_expr as *const Expr, kind);
+                    return Ok(result_type);
+                }
+            }
+        }
+
         let callee_type = self.check_expr(callee)?;
+
+        let user_generic_function = if let Expr::Variable(ident) = callee.as_ref() {
+            self.user_functions.get(&ident.lexeme)
+                .filter(|f| !f.type_parameters.is_empty())
+                .cloned()
+        } else {
+            None
+        };
 
         match callee_type {
             TypeExpr::Function { parameter_types, return_type } => {
@@ -892,12 +1027,37 @@ impl TypeChecker {
                         found: arguments.len()
                     });
                 }
-                
+
                 for (argument, parameter_type) in arguments.iter().zip(parameter_types.iter()) {
                     let argument_type = self.check_expr(argument)?;
                     self.unifier.unify_at(&argument_type, parameter_type, paren)?;
                 }
-                
+
+                if let Some(function) = user_generic_function {
+                    let type_param_names: Vec<String> = function.type_parameters.iter()
+                        .map(|t| t.lexeme.clone()).collect();
+                    let mut mapping: HashMap<String, TypeExpr> = HashMap::new();
+
+                    if let Some(template) = &function.return_type {
+                        let resolved = self.unifier.apply_substitutions(&return_type);
+                        self.match_type_params(template, &resolved, &type_param_names, &mut mapping);
+                    }
+
+                    for ((_, param_template), arg_expr) in function.parameters.iter().zip(arguments.iter()) {
+                        let raw_arg_type = self.types.expr_types.get(&(arg_expr as *const Expr)).cloned();
+                        if let Some(arg_type) = raw_arg_type {
+                            let resolved = self.unifier.apply_substitutions(&arg_type);
+                            self.match_type_params(param_template, &resolved, &type_param_names, &mut mapping);
+                        }
+                    }
+
+                    let type_args: Vec<TypeExpr> = function.type_parameters.iter()
+                        .map(|tp| mapping.get(&tp.lexeme).cloned().unwrap_or_else(|| self.unifier.new_type_var()))
+                        .collect();
+
+                    self.types.call_type_arguments.insert(call_expr as *const Expr, type_args);
+                }
+
                 Ok(*return_type)
             }
             _ => Err(TypeError::InvalidCallTarget {
@@ -905,6 +1065,198 @@ impl TypeChecker {
                 column: paren.column,
                 target_type: callee_type
             })
+        }
+    }
+
+    fn match_type_params(&self, param_type: &TypeExpr, actual_type: &TypeExpr, type_params: &[String], mapping: &mut HashMap<String, TypeExpr>) {
+        if let TypeExpr::Named { identifier, type_arguments, .. } = param_type {
+            if type_arguments.is_empty() && type_params.iter().any(|tp| tp == &identifier.lexeme) {
+                if !mapping.contains_key(&identifier.lexeme) {
+                    mapping.insert(identifier.lexeme.clone(), actual_type.clone());
+                }
+                return;
+            }
+        }
+
+        match (param_type, actual_type) {
+            (TypeExpr::Named { type_arguments: pargs, .. },
+             TypeExpr::Named { type_arguments: aargs, .. }) => {
+                for (pa, aa) in pargs.iter().zip(aargs.iter()) {
+                    self.match_type_params(pa, aa, type_params, mapping);
+                }
+            }
+            (TypeExpr::Function { parameter_types: pp, return_type: pr },
+             TypeExpr::Function { parameter_types: ap, return_type: ar }) => {
+                for (p, a) in pp.iter().zip(ap.iter()) {
+                    self.match_type_params(p, a, type_params, mapping);
+                }
+                self.match_type_params(pr, ar, type_params, mapping);
+            }
+            _ => {}
+        }
+    }
+
+    fn try_builtin_call(&mut self, name: &str, arguments: &Vec<Expr>, paren: &Token) -> Result<Option<(BuiltinCallType, TypeExpr)>, TypeError> {
+        match name {
+            "Array" => {
+                let element_type = if arguments.is_empty() {
+                    self.unifier.new_type_var()
+                } else {
+                    let mut element_type = self.check_expr(&arguments[0])?;
+                    for argument in arguments.iter().skip(1) {
+                        let current_type = self.check_expr(argument)?;
+                        element_type = self.unifier.unify_at(&element_type, &current_type, paren)?;
+                    }
+                    element_type
+                };
+                let result = self.create_array_type(paren.line, paren.column, element_type);
+                Ok(Some((BuiltinCallType::ArrayLiteral, result)))
+            }
+            "Range" | "InclusiveRange" => {
+                if arguments.len() != 2 {
+                    return Err(TypeError::ArgumentCountMismatch {
+                        line: paren.line,
+                        column: paren.column,
+                        expected: 2,
+                        found: arguments.len(),
+                    });
+                }
+                let start_type = self.check_expr(&arguments[0])?;
+                let end_type = self.check_expr(&arguments[1])?;
+                let bound_type = self.unifier.unify_at(&start_type, &end_type, paren)?;
+                let is_inclusive = name == "InclusiveRange";
+                let result = if is_inclusive {
+                    self.create_inclusive_range_type(paren.line, paren.column, bound_type)
+                } else {
+                    self.create_range_type(paren.line, paren.column, bound_type)
+                };
+                Ok(Some((BuiltinCallType::RangeLiteral { is_inclusive }, result)))
+            }
+            "Map" => {
+                if arguments.len() % 2 != 0 {
+                    return Err(TypeError::ArgumentCountMismatch {
+                        line: paren.line,
+                        column: paren.column,
+                        expected: arguments.len() + 1,
+                        found: arguments.len(),
+                    });
+                }
+                let (key_type, value_type) = if arguments.is_empty() {
+                    (self.unifier.new_type_var(), self.unifier.new_type_var())
+                } else {
+                    let mut key_type = self.check_expr(&arguments[0])?;
+                    let mut value_type = self.check_expr(&arguments[1])?;
+                    let mut i = 2;
+                    while i < arguments.len() {
+                        let k = self.check_expr(&arguments[i])?;
+                        let v = self.check_expr(&arguments[i + 1])?;
+                        key_type = self.unifier.unify_at(&key_type, &k, paren)?;
+                        value_type = self.unifier.unify_at(&value_type, &v, paren)?;
+                        i += 2;
+                    }
+                    (key_type, value_type)
+                };
+                self.validate_map_key_type(&key_type, paren)?;
+                let result = self.create_map_type(paren.line, paren.column, key_type, value_type);
+                Ok(Some((BuiltinCallType::MapLiteral, result)))
+            }
+            "print" => {
+                if arguments.len() != 1 {
+                    return Err(TypeError::ArgumentCountMismatch {
+                        line: paren.line,
+                        column: paren.column,
+                        expected: 1,
+                        found: arguments.len(),
+                    });
+                }
+                self.check_expr(&arguments[0])?;
+                let result = self.create_void_type(paren.line, paren.column);
+                Ok(Some((BuiltinCallType::Print, result)))
+            }
+            "map" => {
+                if arguments.len() != 2 {
+                    return Err(TypeError::ArgumentCountMismatch {
+                        line: paren.line,
+                        column: paren.column,
+                        expected: 2,
+                        found: arguments.len(),
+                    });
+                }
+
+                let t_type = self.unifier.new_type_var();
+                let u_type = self.unifier.new_type_var();
+
+                let expected_arr = self.create_array_type(paren.line, paren.column, t_type.clone());
+                let actual_arr = self.check_expr(&arguments[0])?;
+                self.unifier.unify_at(&actual_arr, &expected_arr, paren)?;
+
+                let expected_f = TypeExpr::Function {
+                    parameter_types: vec![t_type],
+                    return_type: Box::new(u_type.clone()),
+                };
+                let actual_f = self.check_expr(&arguments[1])?;
+                self.unifier.unify_at(&actual_f, &expected_f, paren)?;
+
+                let result = self.create_array_type(paren.line, paren.column, u_type);
+                Ok(Some((BuiltinCallType::Map, result)))
+            }
+            "filter" => {
+                if arguments.len() != 2 {
+                    return Err(TypeError::ArgumentCountMismatch {
+                        line: paren.line,
+                        column: paren.column,
+                        expected: 2,
+                        found: arguments.len(),
+                    });
+                }
+
+                let t_type = self.unifier.new_type_var();
+
+                let expected_arr = self.create_array_type(paren.line, paren.column, t_type.clone());
+                let actual_arr = self.check_expr(&arguments[0])?;
+                self.unifier.unify_at(&actual_arr, &expected_arr, paren)?;
+
+                let expected_f = TypeExpr::Function {
+                    parameter_types: vec![t_type.clone()],
+                    return_type: Box::new(self.create_bool_type(paren.line, paren.column)),
+                };
+                let actual_f = self.check_expr(&arguments[1])?;
+                self.unifier.unify_at(&actual_f, &expected_f, paren)?;
+
+                let result = self.create_array_type(paren.line, paren.column, t_type);
+                Ok(Some((BuiltinCallType::Filter, result)))
+            }
+            "foldl" | "foldr" => {
+                if arguments.len() != 3 {
+                    return Err(TypeError::ArgumentCountMismatch {
+                        line: paren.line,
+                        column: paren.column,
+                        expected: 3,
+                        found: arguments.len(),
+                    });
+                }
+
+                let t_type = self.unifier.new_type_var();
+                let u_type = self.unifier.new_type_var();
+
+                let expected_arr = self.create_array_type(paren.line, paren.column, t_type.clone());
+                let actual_arr = self.check_expr(&arguments[0])?;
+                self.unifier.unify_at(&actual_arr, &expected_arr, paren)?;
+
+                let actual_init = self.check_expr(&arguments[1])?;
+                self.unifier.unify_at(&actual_init, &u_type, paren)?;
+
+                let expected_f = TypeExpr::Function {
+                    parameter_types: vec![u_type.clone(), t_type],
+                    return_type: Box::new(u_type.clone()),
+                };
+                let actual_f = self.check_expr(&arguments[2])?;
+                self.unifier.unify_at(&actual_f, &expected_f, paren)?;
+
+                let kind = if name == "foldl" { BuiltinCallType::Foldl } else { BuiltinCallType::Foldr };
+                Ok(Some((kind, u_type)))
+            }
+            _ => Ok(None),
         }
     }
 
@@ -1061,6 +1413,31 @@ impl TypeChecker {
                 let unified_bound_type = self.unifier.unify_at(&start_type, &end_type, start)?;
                 self.unifier.unify_at(&unified_bound_type, subject_type, start)?;
             }
+            Pattern::Tuple { elements, left_paren } => {
+                let resolved = self.unifier.apply_substitutions(subject_type);
+                match resolved {
+                    TypeExpr::Tuple { element_types } => {
+                        if element_types.len() != elements.len() {
+                            return Err(TypeError::TupleArityMismatch {
+                                line: left_paren.line,
+                                column: left_paren.column,
+                                expected: element_types.len(),
+                                found: elements.len(),
+                            });
+                        }
+                        for (sub_pattern, sub_type) in elements.iter().zip(element_types.iter()) {
+                            self.check_pattern(sub_pattern, sub_type)?;
+                        }
+                    }
+                    other => {
+                        return Err(TypeError::DestructureRequiresTuple {
+                            line: left_paren.line,
+                            column: left_paren.column,
+                            target_type: other,
+                        });
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -1071,12 +1448,11 @@ impl TypeChecker {
             TypeExpr::TypeVar { id } => {
                 substitutions.get(id).cloned().unwrap_or(type_expr.clone())
             }
-            TypeExpr::Named { identifier, type_parameters, type_arguments, is_optional, enum_variants, struct_fields } => {
+            TypeExpr::Named { identifier, type_parameters, type_arguments, enum_variants, struct_fields } => {
                 TypeExpr::Named {
                     identifier: identifier.clone(),
                     type_parameters: type_parameters.clone(),
                     type_arguments: type_arguments.iter().map(|t| self.substitute_typevars(t, substitutions)).collect(),
-                    is_optional: *is_optional,
                     enum_variants: enum_variants.clone(),
                     struct_fields: struct_fields.clone(),
                 }
@@ -1085,6 +1461,11 @@ impl TypeChecker {
                 TypeExpr::Function {
                     parameter_types: parameter_types.iter().map(|t| self.substitute_typevars(t, substitutions)).collect(),
                     return_type: Box::new(self.substitute_typevars(return_type, substitutions)),
+                }
+            }
+            TypeExpr::Tuple { element_types } => {
+                TypeExpr::Tuple {
+                    element_types: element_types.iter().map(|t| self.substitute_typevars(t, substitutions)).collect(),
                 }
             }
         }
@@ -1191,6 +1572,7 @@ impl TypeChecker {
 
                 let key_type = type_arguments[0].clone();
                 let value_type = type_arguments[1].clone();
+                self.validate_map_key_type(&key_type, left_bracket)?;
                 self.unifier.unify_at(&index_type, &key_type, left_bracket)?;
 
                 Ok(value_type)
@@ -1205,8 +1587,37 @@ impl TypeChecker {
 
     fn check_field_access_expr(&mut self, target: &Box<Expr>, field: &Token) -> Result<TypeExpr, TypeError> {
         let target_type = self.check_expr(target)?;
+        let resolved = self.unifier.apply_substitutions(&target_type);
 
-        match &target_type {
+        if field.token_type == TokenType::Number {
+            return match &resolved {
+                TypeExpr::Tuple { element_types } => {
+                    let index = field.lexeme.parse::<usize>().map_err(|_| TypeError::TupleFieldOutOfRange {
+                        line: field.line,
+                        column: field.column,
+                        tuple_type: resolved.clone(),
+                        index: usize::MAX,
+                    })?;
+                    if index >= element_types.len() {
+                        Err(TypeError::TupleFieldOutOfRange {
+                            line: field.line,
+                            column: field.column,
+                            tuple_type: resolved.clone(),
+                            index,
+                        })
+                    } else {
+                        Ok(element_types[index].clone())
+                    }
+                }
+                _ => Err(TypeError::InvalidFieldAccessTarget {
+                    line: field.line,
+                    column: field.column,
+                    target_type: resolved,
+                }),
+            };
+        }
+
+        match &resolved {
             TypeExpr::Named { struct_fields: Some(fields), .. } => {
                 if let Some((_, field_type)) = fields.iter().find(|(identifier, _)| identifier.lexeme == field.lexeme) {
                     Ok(field_type.clone())
@@ -1214,7 +1625,7 @@ impl TypeChecker {
                     Err(TypeError::UnknownField {
                         line: field.line,
                         column: field.column,
-                        target_type: target_type,
+                        target_type: resolved,
                         field_name: field.lexeme.clone(),
                     })
                 }
@@ -1222,12 +1633,13 @@ impl TypeChecker {
             _ => Err(TypeError::InvalidFieldAccessTarget {
                 line: field.line,
                 column: field.column,
-                target_type: target_type,
+                target_type: resolved,
             }),
         }
     }
 
     fn check_time_travel_absolute_expr(&mut self, target: &Box<Expr>, index: &Box<Expr>, at_token: &Token) -> Result<TypeExpr, TypeError> {
+        self.track_target_var(target);
         let target_type = self.check_expr(target)?;
         let index_type  = self.check_expr(index)?;
 
@@ -1245,6 +1657,7 @@ impl TypeChecker {
     }
 
     fn check_time_travel_relative_expr(&mut self, target: &Box<Expr>, offset: &Box<Expr>, at_token: &Token) -> Result<TypeExpr, TypeError> {
+        self.track_target_var(target);
         let target_type = self.check_expr(target)?;
         let offset_type = self.check_expr(offset)?;
 
@@ -1280,7 +1693,7 @@ impl TypeChecker {
     
     fn substitute_type_parameters(&self, type_expr: &TypeExpr, type_parameters: &Vec<Token>, type_arguments: &Vec<TypeExpr>) -> TypeExpr {
         match type_expr {
-            TypeExpr::Named { identifier, type_parameters: inner_type_parameters, type_arguments: inner_type_arguments, is_optional, enum_variants, struct_fields } => {
+            TypeExpr::Named { identifier, type_parameters: inner_type_parameters, type_arguments: inner_type_arguments, enum_variants, struct_fields } => {
                 if let Some(position) = type_parameters.iter().position(|p| p.lexeme == identifier.lexeme) {
                     return type_arguments[position].clone();
                 }
@@ -1292,7 +1705,6 @@ impl TypeChecker {
                         .iter()
                         .map(|t| self.substitute_type_parameters(t, type_parameters, type_arguments))
                         .collect(),
-                    is_optional: *is_optional,
                     enum_variants: enum_variants.clone(),
                     struct_fields: struct_fields.clone(),
                 }
@@ -1304,6 +1716,14 @@ impl TypeChecker {
                         .map(|t| self.substitute_type_parameters(t, type_parameters, type_arguments))
                         .collect(),
                     return_type: Box::new(self.substitute_type_parameters(return_type, type_parameters, type_arguments)),
+                }
+            }
+            TypeExpr::Tuple { element_types } => {
+                TypeExpr::Tuple {
+                    element_types: element_types
+                        .iter()
+                        .map(|t| self.substitute_type_parameters(t, type_parameters, type_arguments))
+                        .collect(),
                 }
             }
             TypeExpr::TypeVar { .. } => type_expr.clone(),
@@ -1351,29 +1771,6 @@ impl TypeChecker {
         Ok(())
     } 
 
-    fn inject_builtin_functions(&mut self) -> Result<(), TypeError> {
-        let parameter_type = self.unifier.new_type_var();
-        let return_type = self.create_void_type(0, 0);
-
-        let print_type = TypeExpr::Function {
-            parameter_types: vec![parameter_type],
-            return_type: Box::new(return_type)
-        };
-
-        let print_token = Token {
-            token_type: TokenType::Identifier,
-            lexeme: "print".to_string(),
-            literal: None,
-            line: 0,
-            column: 0
-        };
-
-        self.environment.insert(&print_token, print_type.clone());
-        self.types.function_types.insert("print".to_string(), print_type);
-
-        Ok(())
-    }
-
     fn inject_builtin_enum(&mut self, enum_identifier: &str, type_parameters: Vec<TypeExpr>, variants: Vec<EnumVariant>) -> Result<(), TypeError> {
         let identifier = Self::create_builtin_identifier(enum_identifier);
 
@@ -1381,7 +1778,6 @@ impl TypeChecker {
             identifier: identifier.clone(),
             type_parameters: Some(type_parameters),
             type_arguments: Vec::new(),
-            is_optional: false,
             enum_variants: Some(variants),
             struct_fields: None,
         };
@@ -1404,16 +1800,15 @@ impl TypeChecker {
 
     fn create_type(&self, lexeme: String, line: u32, column: u32, type_arguments: Vec<TypeExpr>) -> TypeExpr {
         TypeExpr::Named {
-            identifier: Token { 
-                token_type: TokenType::Identifier, 
-                lexeme, 
-                literal: None, 
-                line, 
-                column 
+            identifier: Token {
+                token_type: TokenType::Identifier,
+                lexeme,
+                literal: None,
+                line,
+                column
             },
             type_parameters: None,
             type_arguments,
-            is_optional: false,
             enum_variants: None,
             struct_fields: None,
         }
@@ -1445,6 +1840,22 @@ impl TypeChecker {
 
     fn create_map_type(&self, line: u32, column: u32, key_type: TypeExpr, value_type: TypeExpr) -> TypeExpr {
         self.create_type("Map".to_string(), line, column, vec![key_type, value_type])
+    }
+
+    fn validate_map_key_type(&self, key_type: &TypeExpr, error_token: &Token) -> Result<(), TypeError> {
+        let resolved = self.unifier.apply_substitutions(key_type);
+        match &resolved {
+            TypeExpr::Named { identifier, type_arguments, .. }
+                if type_arguments.is_empty() && matches!(identifier.lexeme.as_str(), "Int" | "Double" | "Bool" | "String") =>
+            {
+                Ok(())
+            }
+            _ => Err(TypeError::InvalidMapKeyType {
+                line: error_token.line,
+                column: error_token.column,
+                key_type: resolved,
+            }),
+        }
     }
 
     fn create_range_type(&self, line: u32, column: u32, bounds_type: TypeExpr) -> TypeExpr {

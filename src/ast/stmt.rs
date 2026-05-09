@@ -5,11 +5,29 @@ use crate::ast::expr::Expr;
 use crate::type_system::types::TypeExpr;
 
 #[derive(Debug, Clone)]
+pub enum VariableBinding {
+    Identifier(Token),
+    Tuple {
+        elements: Vec<VariableBinding>,
+        left_paren: Token,
+    },
+}
+
+impl VariableBinding {
+    pub fn first_token(&self) -> &Token {
+        match self {
+            VariableBinding::Identifier(token) => token,
+            VariableBinding::Tuple { left_paren, .. } => left_paren,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Stmt {
-    Variable { 
-        identifier: Token, 
+    Variable {
+        binding: VariableBinding,
         type_annotation: Option<TypeExpr>,
-        initializer: Option<Expr> 
+        initializer: Option<Expr>
     },
     Enum {
         identifier: Token,
@@ -32,9 +50,9 @@ pub enum Stmt {
         condition: Expr,
         body: Box<Stmt>,
     },
-    ForRange {
-        identifier: Token,
-        range: Expr,
+    ForIn {
+        binding: VariableBinding,
+        iterable: Expr,
         body: Box<Stmt>,
     },
     Function(Rc<FunctionStmt>),

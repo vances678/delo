@@ -81,22 +81,24 @@ error: Duplicate enum variant 'Some'
   |
 2 |   Some(Int),
   |      ^
-error: Type mismatch: expected Optional<?2>, found OptionalInt
+error: Type mismatch: expected Optional<?0>, found OptionalInt
   |
 6 | var x: OptionalInt = Some(5)
   |     ^
 
 
+// TEST: Optional<T> shorthand Int? - assigning Some
+var o: Int? = Some(5)
+print(o ?? 0)
+// EXPECT:
+5
+
+
 // TEST: Optional<T> shorthand Int? - assigning None
 var o: Int? = None
+print(o ?? -1)
 // EXPECT:
-==========================
->>> Found 1 type error <<<
-==========================
-error: Type mismatch: expected Optional<?2>, found Int?
-  |
-1 | var o: Int? = None
-  |     ^
+-1
 
 
 // TEST: Optional<T> shorthand Int? - assigning wrong inner type
@@ -105,7 +107,7 @@ var o2: Int? = Some("hi")
 ==========================
 >>> Found 1 type error <<<
 ==========================
-error: Type mismatch: expected Optional<?2>, found Int?
+error: Type mismatch: expected String, found Int
   |
 1 | var o2: Int? = Some("hi")
   |      ^
@@ -117,7 +119,7 @@ var n: Int = None
 ==========================
 >>> Found 1 type error <<<
 ==========================
-error: Type mismatch: expected Optional<?2>, found Int
+error: Type mismatch: expected Optional<?0>, found Int
   |
 1 | var n: Int = None
   |     ^

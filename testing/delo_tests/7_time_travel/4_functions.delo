@@ -1,0 +1,43 @@
+// TEST: function reads tracked var from outer scope
+var x: Int = 10
+x = x + 5
+fn double_current() -> Int {
+  x@-0 * 2
+}
+print(double_current())
+x@=0 = 100
+print(double_current())
+// EXPECT:
+30
+210
+
+// TEST: function body issues tt-write
+var counter: Int = 0
+counter = counter + 1
+counter = counter + 1
+counter = counter + 1
+fn rewind_to_one() -> Int {
+  counter@=0 = 1
+}
+print(counter)
+rewind_to_one()
+print(counter)
+// EXPECT:
+3
+4
+
+// TEST: recursive function preserves outer var across recursion
+var sum: Int = 0
+fn add_n(n: Int) -> Void {
+  if (n > 0) {
+    sum = sum + n
+    add_n(n - 1)
+  }
+}
+add_n(5)
+print(sum)
+sum@=0 = 100
+print(sum)
+// EXPECT:
+15
+115

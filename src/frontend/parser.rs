@@ -4,7 +4,7 @@ use std::mem;
 use crate::error::ParseError;
 use crate::ast::token::{Literal, Token, TokenType};
 use crate::ast::expr::{Expr, MatchCase, Pattern};
-use crate::ast::stmt::{EnumVariant, FunctionStmt, Stmt};
+use crate::ast::stmt::{EnumVariant, FunctionStmt, Stmt, VariableBinding};
 use crate::type_system::types::TypeExpr;
 
 pub struct Parser {
@@ -63,7 +63,7 @@ impl Parser {
     }
 
     fn variable_declaration(&mut self) -> Result<Stmt, ParseError> {
-        let identifier = self.consume(TokenType::Identifier)?.clone();
+        let binding = self.variable_binding()?;
 
         let type_annotation = if self.matches(&[TokenType::Colon]) {
             Some(self.type_expr()?)
@@ -77,11 +77,44 @@ impl Parser {
             None
         };
 
-        Ok(Stmt::Variable { 
-            identifier,
-            type_annotation, 
+        Ok(Stmt::Variable {
+            binding,
+            type_annotation,
             initializer,
         })
+    }
+
+    fn variable_binding(&mut self) -> Result<VariableBinding, ParseError> {
+        if self.matches(&[TokenType::LeftParen]) {
+            let left_paren = self.previous().clone();
+
+            if self.check(&TokenType::RightParen) {
+                let token = self.peek().clone();
+                return Err(ParseError::EmptyTuple { line: token.line, column: token.column });
+            }
+
+            let mut elements = vec![self.variable_binding()?];
+            let mut had_trailing_comma = false;
+
+            while self.matches(&[TokenType::Comma]) {
+                if self.check(&TokenType::RightParen) {
+                    had_trailing_comma = true;
+                    break;
+                }
+                elements.push(self.variable_binding()?);
+            }
+
+            self.consume(TokenType::RightParen)?;
+
+            if elements.len() == 1 && !had_trailing_comma {
+                return Ok(elements.into_iter().next().unwrap());
+            }
+
+            Ok(VariableBinding::Tuple { elements, left_paren })
+        } else {
+            let identifier = self.consume(TokenType::Identifier)?.clone();
+            Ok(VariableBinding::Identifier(identifier))
+        }
     }
 
     fn enum_declaration(&mut self) -> Result<Stmt, ParseError> {
@@ -260,19 +293,25 @@ impl Parser {
         let for_token = self.previous().clone();
         self.consume(TokenType::LeftParen)?;
 
-        // range form: for (name in range) { ... }
-        if self.check(&TokenType::Identifier) && self.peek_next().token_type == TokenType::In {
-            let identifier = self.advance().clone();
-            self.consume(TokenType::In)?;
-            let range = self.expression()?;
-            self.consume(TokenType::RightParen)?;
-            let body = self.statement()?;
+        // for-in form: for (binding in iterable) { ... } where binding is ident or tuple
+        if (self.check(&TokenType::Identifier) && self.peek_next().token_type == TokenType::In)
+            || self.check(&TokenType::LeftParen)
+        {
+            let saved = self.current;
+            let binding = self.variable_binding()?;
+            if self.check(&TokenType::In) {
+                self.advance();
+                let iterable = self.expression()?;
+                self.consume(TokenType::RightParen)?;
+                let body = self.statement()?;
 
-            return Ok(Stmt::ForRange {
-                identifier,
-                range,
-                body: Box::new(body),
-            });
+                return Ok(Stmt::ForIn {
+                    binding,
+                    iterable,
+                    body: Box::new(body),
+                });
+            }
+            self.current = saved;
         }
 
         // standard form: for (initializer; condition; increment) { ... } 
@@ -527,6 +566,34 @@ impl Parser {
             }
 
             return Ok(Pattern::Variable(identifier)); // TODO: determine if 0-ary EnumVariant with enum variant table
+        }
+
+        if self.matches(&[TokenType::LeftParen]) {
+            let left_paren = self.previous().clone();
+
+            if self.check(&TokenType::RightParen) {
+                let token = self.peek().clone();
+                return Err(ParseError::EmptyTuple { line: token.line, column: token.column });
+            }
+
+            let mut elements = vec![self.pattern()?];
+            let mut had_trailing_comma = false;
+
+            while self.matches(&[TokenType::Comma]) {
+                if self.check(&TokenType::RightParen) {
+                    had_trailing_comma = true;
+                    break;
+                }
+                elements.push(self.pattern()?);
+            }
+
+            self.consume(TokenType::RightParen)?;
+
+            if elements.len() == 1 && !had_trailing_comma {
+                return Ok(elements.into_iter().next().unwrap());
+            }
+
+            return Ok(Pattern::Tuple { elements, left_paren });
         }
 
         let found = self.peek().clone();
@@ -799,15 +866,15 @@ impl Parser {
                     column: operator_token.column,
                 });
 
-                let intermediate_operator_type = match operator_token.token_type {
-                    TokenType::PlusPlus => TokenType::Plus,
-                    TokenType::MinusMinus => TokenType::Minus,
+                let (intermediate_operator_type, intermediate_operator_lexeme) = match operator_token.token_type {
+                    TokenType::PlusPlus => (TokenType::Plus, "+"),
+                    TokenType::MinusMinus => (TokenType::Minus, "-"),
                     _ => unreachable!(),
                 };
 
                 let intermediate_operator = Token {
                     token_type: intermediate_operator_type,
-                    lexeme: operator_token.lexeme.clone(),
+                    lexeme: intermediate_operator_lexeme.to_string(),
                     literal: None,
                     line: operator_token.line,
                     column: operator_token.column,
@@ -892,10 +959,29 @@ impl Parser {
     }
 
     fn field_access(&mut self, target: Expr) -> Result<Expr, ParseError> {
-        let field = self.consume(TokenType::Identifier)?.clone();
+        let field = if self.matches(&[TokenType::Number]) {
+            self.previous().clone()
+        } else {
+            self.consume(TokenType::Identifier)?.clone()
+        };
 
-        Ok(Expr::FieldAccess { 
-            target: Box::new(target), 
+        if field.token_type == TokenType::Number && field.lexeme.contains('.') {
+            let mut current = target;
+            for part in field.lexeme.split('.') {
+                let part_token = Token {
+                    token_type: TokenType::Number,
+                    lexeme: part.to_string(),
+                    literal: None,
+                    line: field.line,
+                    column: field.column,
+                };
+                current = Expr::FieldAccess { target: Box::new(current), field: part_token };
+            }
+            return Ok(current);
+        }
+
+        Ok(Expr::FieldAccess {
+            target: Box::new(target),
             field,
         })
     }
@@ -999,6 +1085,8 @@ impl Parser {
             })
 
         } else if self.matches(&[TokenType::LeftParen]) {
+            let left_paren = self.previous().clone();
+
             if self.check(&TokenType::Identifier) && self.peek_next().token_type == TokenType::Colon {
 
                 let mut parameters = Vec::new();
@@ -1030,10 +1118,27 @@ impl Parser {
                     return_type,
                     body,
                 })
+            } else if self.check(&TokenType::RightParen) {
+                self.advance();
+                Ok(Expr::TupleLiteral { elements: Vec::new(), left_paren })
             } else {
-                let expr = self.expression()?;
-                self.consume(TokenType::RightParen)?;
-                Ok(Expr::Grouping(Box::new(expr)))
+                let first = self.expression()?;
+                if self.matches(&[TokenType::Comma]) {
+                    let mut elements = vec![first];
+
+                    while !self.check(&TokenType::RightParen) {
+                        elements.push(self.expression()?);
+                        if !self.matches(&[TokenType::Comma]) {
+                            break;
+                        }
+                    }
+
+                    self.consume(TokenType::RightParen)?;
+                    Ok(Expr::TupleLiteral { elements, left_paren })
+                } else {
+                    self.consume(TokenType::RightParen)?;
+                    Ok(Expr::Grouping(Box::new(first)))
+                }
             }
         } else {
             let found = self.peek().clone();
@@ -1047,25 +1152,63 @@ impl Parser {
 
     fn type_expr(&mut self) -> Result<TypeExpr, ParseError> {
         if self.matches(&[TokenType::LeftParen]) {
-            let mut parameter_types = Vec::new();
+            let left_paren = self.previous().clone();
 
-            if !self.check(&TokenType::RightParen) {
-                loop {
-                    parameter_types.push(self.type_expr()?);
-                    if !self.matches(&[TokenType::Comma]) {
-                        break;
-                    }
+            if self.check(&TokenType::RightParen) {
+                self.advance();
+                if self.matches(&[TokenType::MinusGreater]) {
+                    let return_type = self.type_expr()?;
+                    return Ok(TypeExpr::Function {
+                        parameter_types: Vec::new(),
+                        return_type: Box::new(return_type),
+                    });
                 }
+                return Ok(TypeExpr::Named {
+                    identifier: Token {
+                        token_type: TokenType::Identifier,
+                        lexeme: "Void".to_string(),
+                        literal: None,
+                        line: left_paren.line,
+                        column: left_paren.column,
+                    },
+                    type_parameters: None,
+                    type_arguments: Vec::new(),
+                    enum_variants: None,
+                    struct_fields: None,
+                });
+            }
+
+            let mut element_types = vec![self.type_expr()?];
+            let mut saw_comma = false;
+            let mut had_trailing_comma = false;
+
+            while self.matches(&[TokenType::Comma]) {
+                saw_comma = true;
+                if self.check(&TokenType::RightParen) {
+                    had_trailing_comma = true;
+                    break;
+                }
+                element_types.push(self.type_expr()?);
             }
 
             self.consume(TokenType::RightParen)?;
-            self.consume(TokenType::MinusGreater)?;
-            let return_type = self.type_expr()?;
 
-            return Ok(TypeExpr::Function {
-                parameter_types,
-                return_type: Box::new(return_type),
-            });
+            if self.matches(&[TokenType::MinusGreater]) {
+                let return_type = self.type_expr()?;
+                return Ok(TypeExpr::Function {
+                    parameter_types: element_types,
+                    return_type: Box::new(return_type),
+                });
+            }
+
+            if saw_comma {
+                if element_types.len() == 1 && !had_trailing_comma {
+                    return Ok(element_types.into_iter().next().unwrap());
+                }
+                return Ok(TypeExpr::Tuple { element_types });
+            }
+
+            return Ok(element_types.into_iter().next().unwrap());
         }
 
         let identifier = self.consume(TokenType::Identifier)?.clone();
@@ -1081,16 +1224,33 @@ impl Parser {
             self.consume(TokenType::Greater)?;
         }
 
-        let is_optional = self.matches(&[TokenType::Question]);
-
-        Ok(TypeExpr::Named {
+        let inner = TypeExpr::Named {
             identifier,
             type_parameters: None,
             type_arguments,
-            is_optional,
             enum_variants: None,
             struct_fields: None,
-        })
+        };
+
+        if self.matches(&[TokenType::Question]) {
+            let question_token = self.previous().clone();
+            let optional_identifier = Token {
+                token_type: TokenType::Identifier,
+                lexeme: "Optional".to_string(),
+                literal: None,
+                line: question_token.line,
+                column: question_token.column,
+            };
+            return Ok(TypeExpr::Named {
+                identifier: optional_identifier,
+                type_parameters: None,
+                type_arguments: vec![inner],
+                enum_variants: None,
+                struct_fields: None,
+            });
+        }
+
+        Ok(inner)
     }
 
     fn type_parameters(&mut self) -> Result<Vec<Token>, ParseError> {

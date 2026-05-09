@@ -13,6 +13,10 @@ pub enum Expr {
         elements: Vec<(Expr, Expr)>,
         left_brace: Token,
     },
+    TupleLiteral {
+        elements: Vec<Expr>,
+        left_paren: Token,
+    },
     RangeLiteral {
         start: Box<Expr>,
         end: Box<Expr>,
@@ -123,6 +127,10 @@ pub enum Pattern {
     EnumVariant {
         identifier: Token,
         arguments: Vec<Pattern>,
+    },
+    Tuple {
+        elements: Vec<Pattern>,
+        left_paren: Token,
     },
     Range {
         start: Token,

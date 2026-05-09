@@ -1,0 +1,32 @@
+// TEST: README portfolio example
+var portfolio: Double = 10000.0
+portfolio = portfolio * 1.10
+portfolio = portfolio * 0.85
+portfolio = portfolio * 1.20
+portfolio = portfolio * 1.05
+print(portfolio)
+
+print(portfolio@=0)
+print(portfolio@-4)
+
+portfolio@=2 = portfolio@=1 * 1.05
+print(portfolio)
+
+portfolio@-2 = portfolio@-1 * 0.85
+print(portfolio)
+
+for (q2 in [0.85, 0.95, 1.05, 1.15, 1.25]) {
+  portfolio@=2 = portfolio@=1 * q2
+  print(portfolio)
+}
+// EXPECT:
+11781
+10000
+10000
+14553
+14844.1
+11781
+13167
+14553
+15939
+17325

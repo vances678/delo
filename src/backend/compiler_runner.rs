@@ -49,8 +49,18 @@ impl CompilerRunner {
         let mut cmd = Command::new(compiler);
         
         match compiler {
-            "gcc" | "clang" | "cc" => cmd.arg("-g").arg(&c_path).arg("-o").arg(&executable_path), 
-            _ => cmd.arg("/Zi").arg("/Fe").arg(&executable_path).arg(&c_path)
+            "gcc" | "clang" | "cc" => {
+                cmd.arg("-g").arg(&c_path).arg("-o").arg(&executable_path).arg("-lm");
+                if cfg!(windows) {
+                    cmd.arg("-lbcrypt");
+                }
+            }
+            _ => {
+                cmd.arg("/Zi").arg("/Fe").arg(&executable_path).arg(&c_path);
+                if cfg!(windows) {
+                    cmd.arg("bcrypt.lib");
+                }
+            }
         };
 
         let output = cmd.output()?;

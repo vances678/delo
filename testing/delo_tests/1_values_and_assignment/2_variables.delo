@@ -67,14 +67,14 @@ error: Undefined variable (a)
   |         ^
 
 // TEST: invalid variable name in declaration error
-var (a) = 1
+var 5 = 1
 // EXPECT:
 ===========================
 >>> Found 1 parse error <<<
 ===========================
-error: Expected 'identifier', found '('
+error: Expected 'identifier', found 'number' (5)
   |
-1 | var (a) = 1
+1 | var 5 = 1
   |     ^
 
 // TEST: missing variable name error

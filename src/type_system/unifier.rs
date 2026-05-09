@@ -30,20 +30,24 @@ impl Unifier {
 
     pub fn apply_substitutions(&self, type_expr: &TypeExpr) -> TypeExpr {
         match type_expr {
-            TypeExpr::Named { identifier, type_parameters, type_arguments, is_optional, enum_variants, struct_fields } => {
-                TypeExpr::Named { 
+            TypeExpr::Named { identifier, type_parameters, type_arguments, enum_variants, struct_fields } => {
+                TypeExpr::Named {
                     identifier: identifier.clone(),
                     type_parameters: type_parameters.clone(),
-                    type_arguments: type_arguments.iter().map(|t| self.apply_substitutions(t)).collect(), 
-                    is_optional: *is_optional, 
-                    enum_variants: enum_variants.clone(), 
-                    struct_fields: struct_fields.clone() 
+                    type_arguments: type_arguments.iter().map(|t| self.apply_substitutions(t)).collect(),
+                    enum_variants: enum_variants.clone(),
+                    struct_fields: struct_fields.clone()
                 }
             }
             TypeExpr::Function { parameter_types, return_type } => {
-                TypeExpr::Function { 
-                    parameter_types: parameter_types.iter().map(|t| self.apply_substitutions(t)).collect(), 
-                    return_type: Box::new(self.apply_substitutions(return_type)) 
+                TypeExpr::Function {
+                    parameter_types: parameter_types.iter().map(|t| self.apply_substitutions(t)).collect(),
+                    return_type: Box::new(self.apply_substitutions(return_type))
+                }
+            }
+            TypeExpr::Tuple { element_types } => {
+                TypeExpr::Tuple {
+                    element_types: element_types.iter().map(|t| self.apply_substitutions(t)).collect(),
                 }
             }
             TypeExpr::TypeVar { id } => {
@@ -88,14 +92,12 @@ impl Unifier {
                 identifier: identifier_a,
                 type_parameters: type_parameters_a,
                 type_arguments: type_arguments_a,
-                is_optional: is_optional_a,
                 enum_variants: enum_variants_a,
                 struct_fields: struct_fields_a,
             },
             TypeExpr::Named {
                 identifier: identifier_b,
                 type_arguments: type_arguments_b,
-                is_optional: is_optional_b,
                 ..
             }) => {
                 if identifier_a.lexeme != identifier_b.lexeme {
@@ -103,10 +105,6 @@ impl Unifier {
                 }
 
                 if type_arguments_a.len() != type_arguments_b.len() {
-                    return Err(UnifyError::MismatchedTypes { expected: type_a, found: type_b });
-                }
-
-                if is_optional_a != is_optional_b {
                     return Err(UnifyError::MismatchedTypes { expected: type_a, found: type_b });
                 }
 
@@ -119,7 +117,6 @@ impl Unifier {
                     identifier: identifier_a.clone(),
                     type_parameters: type_parameters_a.clone(),
                     type_arguments: unified_type_arguments,
-                    is_optional: *is_optional_a,
                     enum_variants: enum_variants_a.clone(),
                     struct_fields: struct_fields_a.clone(),
                 })
@@ -147,6 +144,18 @@ impl Unifier {
                     parameter_types: unified_parameter_types,
                     return_type: Box::new(unified_return_type),
                 })
+            }
+            (TypeExpr::Tuple { element_types: element_types_a }, TypeExpr::Tuple { element_types: element_types_b }) => {
+                if element_types_a.len() != element_types_b.len() {
+                    return Err(UnifyError::MismatchedTypes { expected: type_a, found: type_b });
+                }
+
+                let mut unified_element_types = Vec::new();
+                for (element_a, element_b) in element_types_a.iter().zip(element_types_b.iter()) {
+                    unified_element_types.push(self.unify(element_a, element_b)?);
+                }
+
+                Ok(TypeExpr::Tuple { element_types: unified_element_types })
             }
             _ => Err(UnifyError::MismatchedTypes { expected: type_a, found: type_b })
         }
@@ -181,6 +190,9 @@ impl Unifier {
                 parameter_types.iter().any(|t| self.type_var_occurs_in_type(type_var_id, t))
                 || self.type_var_occurs_in_type(type_var_id, &return_type)
             }
+            TypeExpr::Tuple { element_types } => {
+                element_types.iter().any(|t| self.type_var_occurs_in_type(type_var_id, t))
+            }
             TypeExpr::TypeVar { id } => id == type_var_id,
         }
     }
@@ -200,12 +212,11 @@ impl Unifier {
 
     fn instantiate_type_with_mapping(&mut self, type_expr: &TypeExpr, mapping: &mut HashMap<usize, TypeExpr>) -> TypeExpr {
         match type_expr {
-            TypeExpr::Named { identifier, type_parameters, type_arguments, is_optional, enum_variants, struct_fields } => {
+            TypeExpr::Named { identifier, type_parameters, type_arguments, enum_variants, struct_fields } => {
                 TypeExpr::Named {
                     identifier: identifier.clone(),
                     type_parameters: type_parameters.clone(),
                     type_arguments: type_arguments.iter().map(|t| self.instantiate_type_with_mapping(t, mapping)).collect(),
-                    is_optional: *is_optional,
                     enum_variants: enum_variants.clone(),
                     struct_fields: struct_fields.as_ref().map(|fields| {
                         fields.iter().map(|(identifier, field_type)| {
@@ -218,6 +229,11 @@ impl Unifier {
                 TypeExpr::Function {
                     parameter_types: parameter_types.iter().map(|t| self.instantiate_type_with_mapping(t, mapping)).collect(),
                     return_type: Box::new(self.instantiate_type_with_mapping(return_type, mapping)),
+                }
+            }
+            TypeExpr::Tuple { element_types } => {
+                TypeExpr::Tuple {
+                    element_types: element_types.iter().map(|t| self.instantiate_type_with_mapping(t, mapping)).collect(),
                 }
             }
             TypeExpr::TypeVar { id } => {

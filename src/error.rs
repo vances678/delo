@@ -90,6 +90,10 @@ pub enum ParseError {
         column: u32,
         parameter: Token,
     },
+    EmptyTuple {
+        line: u32,
+        column: u32,
+    },
 }
 
 impl ErrorMessage for ParseError {
@@ -129,6 +133,9 @@ impl ErrorMessage for ParseError {
             Self::DuplicateParameter { parameter, .. } => {
                 format!("Duplicate parameter '{}'", parameter.lexeme)
             },
+            Self::EmptyTuple { .. } => {
+                "Empty tuple () is not allowed; use Void for type-level no-value".to_string()
+            },
         }
     }
 }
@@ -144,6 +151,7 @@ impl ErrorWithLocation for ParseError {
             Self::MismatchedRangeBounds { line, .. } => Some(*line),
             Self::MissingRangeEnd { line, .. } => Some(*line),
             Self::DuplicateParameter { line, .. } => Some(*line),
+            Self::EmptyTuple { line, .. } => Some(*line),
         }
     }
     fn column(&self) -> Option<u32> {
@@ -156,6 +164,7 @@ impl ErrorWithLocation for ParseError {
             Self::MismatchedRangeBounds { column, .. } => Some(*column),
             Self::MissingRangeEnd { column, .. } => Some(*column),
             Self::DuplicateParameter { column, .. } => Some(*column),
+            Self::EmptyTuple { column, .. } => Some(*column),
         }
     }
 }
@@ -183,14 +192,6 @@ pub enum TypeError {
         line: u32,
         column: u32,
         identifier: String,
-    },
-    EmptyArrayWithoutTypeAnnotation {
-        line: u32,
-        column: u32,
-    },
-    EmptyMapWithoutTypeAnnotation {
-        line: u32,
-        column: u32,
     },
     ConditionNotBoolean {
         line: u32,
@@ -231,7 +232,12 @@ pub enum TypeError {
         column: u32,
         target_type: TypeExpr,
     },
-    InvalidForRangeTarget {
+    InvalidMapKeyType {
+        line: u32,
+        column: u32,
+        key_type: TypeExpr,
+    },
+    InvalidForInTarget {
         line: u32,
         column: u32,
         target_type: TypeExpr,
@@ -291,6 +297,23 @@ pub enum TypeError {
         line: u32,
         column: u32,
         variant_identifier: String,
+    },
+    TupleFieldOutOfRange {
+        line: u32,
+        column: u32,
+        tuple_type: TypeExpr,
+        index: usize,
+    },
+    TupleArityMismatch {
+        line: u32,
+        column: u32,
+        expected: usize,
+        found: usize,
+    },
+    DestructureRequiresTuple {
+        line: u32,
+        column: u32,
+        target_type: TypeExpr,
     }
 }
 
@@ -301,8 +324,6 @@ impl ErrorMessage for TypeError {
             Self::InfiniteType { type_var_id, type_expr, .. } => format!("Cannot construct infinite type: type variable {type_var_id} occurs in {type_expr}"),
             Self::MissingTypeAnnotationAndInitializer { identifier, .. } => format!("Variable {identifier} must have a type annotation or an initializer"),
             Self::UndefinedVariable { identifier, .. } => format!("Undefined variable ({identifier})"),
-            Self::EmptyArrayWithoutTypeAnnotation { .. } => "Empty array requires type annotation".to_string(),
-            Self::EmptyMapWithoutTypeAnnotation { .. } => "Empty map requires type annotation".to_string(),
             Self::ConditionNotBoolean { condition_type, .. } => format!("Condition must be have type Bool, found {condition_type}"),
             Self::InvalidUnaryOperand { operator, operand_type, .. } => format!("Invalid operand type {operand_type} for operator '{operator}'"),
             Self::InvalidBinaryOperands { operator, left_type, right_type, .. } => format!("Invalid operand types {left_type} and {right_type} for operator '{operator}'"),
@@ -310,7 +331,8 @@ impl ErrorMessage for TypeError {
             Self::InvalidIndexType { target_type, index_type, .. } => format!("Invalid index type {index_type} for {target_type}"),
             Self::InvalidFieldAccessTarget { target_type, .. } => format!("Cannot access fields on value of non-struct type {target_type}"),
             Self::InvalidCallTarget { target_type, .. } => format!("Cannot call value of non-function type {target_type}"),
-            Self::InvalidForRangeTarget { target_type, .. } => format!("For-loop range expression must be a Range or InclusiveRange, found {target_type}"),
+            Self::InvalidForInTarget { target_type, .. } => format!("For-in iterable must be a Range, InclusiveRange, Array, or Map, found {target_type}"),
+            Self::InvalidMapKeyType { key_type, .. } => format!("Map keys must be Int, Double, Bool, or String, found {key_type}"),
             Self::UnknownField { target_type, field_name, .. } => format!("Type {target_type} has no field named '{field_name}'"),
             Self::BreakOutsideLoop { .. } => "'break' must be inside a loop".to_string(),
             Self::ContinueOutsideLoop { .. } => "'continue' must be inside a loop".to_string(),
@@ -322,6 +344,9 @@ impl ErrorMessage for TypeError {
             Self::InvalidEnumVariant { enum_type, variant_identifier, .. } => format!("Enum type {enum_type} has no variant named '{variant_identifier}'"),
             Self::InvalidEnumPatternTarget { subject_type, .. } => format!("Cannot pattern match enum variant on non-enum type {subject_type}"),
             Self::DuplicateEnumVariant { variant_identifier, .. } => format!("Duplicate enum variant '{variant_identifier}'"),
+            Self::TupleFieldOutOfRange { tuple_type, index, .. } => format!("Tuple field index {index} is out of range for type {tuple_type}"),
+            Self::TupleArityMismatch { expected, found, .. } => format!("Tuple size mismatch: expected {expected} elements, found {found}"),
+            Self::DestructureRequiresTuple { target_type, .. } => format!("Tuple destructuring requires a tuple type, found {target_type}"),
         }
     }
 }
@@ -333,8 +358,6 @@ impl ErrorWithLocation for TypeError {
             Self::InfiniteType { line, .. } => Some(*line),
             Self::MissingTypeAnnotationAndInitializer { line, .. } => Some(*line),
             Self::UndefinedVariable { line, .. } => Some(*line),
-            Self::EmptyArrayWithoutTypeAnnotation { line, .. } => Some(*line),
-            Self::EmptyMapWithoutTypeAnnotation { line, .. } => Some(*line),
             Self::ConditionNotBoolean { line, .. } => Some(*line),
             Self::InvalidUnaryOperand { line, .. } => Some(*line),
             Self::InvalidBinaryOperands { line, .. } => Some(*line),
@@ -342,7 +365,8 @@ impl ErrorWithLocation for TypeError {
             Self::InvalidIndexType { line, .. } => Some(*line),
             Self::InvalidFieldAccessTarget { line, .. } => Some(*line),
             Self::InvalidCallTarget { line, .. } => Some(*line),
-            Self::InvalidForRangeTarget { line, .. } => Some(*line),
+            Self::InvalidForInTarget { line, .. } => Some(*line),
+            Self::InvalidMapKeyType { line, .. } => Some(*line),
             Self::UnknownField { line, .. } => Some(*line),
             Self::BreakOutsideLoop { line, .. } => Some(*line),
             Self::ContinueOutsideLoop { line, .. } => Some(*line),
@@ -354,6 +378,9 @@ impl ErrorWithLocation for TypeError {
             Self::InvalidEnumVariant { line, .. } => Some(*line),
             Self::InvalidEnumPatternTarget { line, .. } => Some(*line),
             Self::DuplicateEnumVariant { line, .. } => Some(*line),
+            Self::TupleFieldOutOfRange { line, .. } => Some(*line),
+            Self::TupleArityMismatch { line, .. } => Some(*line),
+            Self::DestructureRequiresTuple { line, .. } => Some(*line),
         }
     }
     fn column(&self) -> Option<u32> {
@@ -362,8 +389,6 @@ impl ErrorWithLocation for TypeError {
             Self::InfiniteType { column, .. } => Some(*column),
             Self::MissingTypeAnnotationAndInitializer { column, .. } => Some(*column),
             Self::UndefinedVariable { column, .. } => Some(*column),
-            Self::EmptyArrayWithoutTypeAnnotation { column, .. } => Some(*column),
-            Self::EmptyMapWithoutTypeAnnotation { column, .. } => Some(*column),
             Self::ConditionNotBoolean { column, .. } => Some(*column),
             Self::InvalidUnaryOperand { column, .. } => Some(*column),
             Self::InvalidBinaryOperands { column, .. } => Some(*column),
@@ -371,7 +396,8 @@ impl ErrorWithLocation for TypeError {
             Self::InvalidIndexType { column, .. } => Some(*column),
             Self::InvalidFieldAccessTarget { column, .. } => Some(*column),
             Self::InvalidCallTarget { column, .. } => Some(*column),
-            Self::InvalidForRangeTarget { column, .. } => Some(*column),
+            Self::InvalidForInTarget { column, .. } => Some(*column),
+            Self::InvalidMapKeyType { column, .. } => Some(*column),
             Self::UnknownField { column, .. } => Some(*column),
             Self::BreakOutsideLoop { column, .. } => Some(*column),
             Self::ContinueOutsideLoop { column, .. } => Some(*column),
@@ -383,6 +409,9 @@ impl ErrorWithLocation for TypeError {
             Self::InvalidEnumVariant { column, .. } => Some(*column),
             Self::InvalidEnumPatternTarget { column, .. } => Some(*column),
             Self::DuplicateEnumVariant { column, .. } => Some(*column),
+            Self::TupleFieldOutOfRange { column, .. } => Some(*column),
+            Self::TupleArityMismatch { column, .. } => Some(*column),
+            Self::DestructureRequiresTuple { column, .. } => Some(*column),
         }
     }
 }
@@ -410,24 +439,16 @@ impl ErrorMessage for UnifyError {
 
 #[derive(Debug, Clone)]
 pub enum CodegenError {
-    UnsupportedMapLiteral {
-        line: u32,
-        column: u32,
-    },
     MissingType {
         line: u32,
         column: u32,
         identifier: String,
     },
-    InvalidArrayLiteralType {
+    UnexpectedTypeInCodegen {
         line: u32,
         column: u32,
-        array_type: TypeExpr,
-    },
-    InvalidRangeType {
-        line: u32,
-        column: u32,
-        range_type: TypeExpr,
+        expected: &'static str,
+        found_type: TypeExpr,
     },
     InvalidEnumArgumentCount {
         line: u32,
@@ -435,12 +456,6 @@ pub enum CodegenError {
         variant_identifier: String,
         expected: usize,
         found: usize,
-    },
-    UnsupportedEnumVariantPayload {
-        line: u32,
-        column: u32,
-        enum_identifier: String,
-        variant_identifier: String,
     },
     InvalidCallTarget {
         line: u32,
@@ -458,11 +473,6 @@ pub enum CodegenError {
     UnsupportedMatchPattern {
         line: u32,
         column: u32,
-    },
-    InvalidEnumPatternSubjectType {
-        line: u32,
-        column: u32,
-        subject_type: TypeExpr,
     },
     UnknownEnumVariantInPattern {
         line: u32,
@@ -482,12 +492,9 @@ pub enum CodegenError {
 impl ErrorMessage for CodegenError {
     fn message(&self) -> String {
         match self {
-            Self::UnsupportedMapLiteral { .. } => "Map literals are not yet supported in Delo".to_string(),
             Self::MissingType { identifier, .. } => format!("Could not determine type for '{}'", identifier),
-            Self::InvalidArrayLiteralType { array_type, .. } => format!("Array literal must of type Array, but found {array_type}"),
-            Self::InvalidRangeType { range_type, .. } => format!("Range must be of type Range or InclusiveRange, but found {range_type}"),
+            Self::UnexpectedTypeInCodegen { expected, found_type, .. } => format!("Internal codegen error: expected {expected}, but found {found_type}"),
             Self::InvalidEnumArgumentCount { variant_identifier, expected, found, .. } => format!("Enum variant '{variant_identifier}' expected {expected} arguments, found {found}"),
-            Self::UnsupportedEnumVariantPayload { enum_identifier, variant_identifier, .. } => format!("Enum variant '{variant_identifier}' of enum '{enum_identifier}' has an unsupported payload type"),
             Self::InvalidCallTarget { target_type, .. } => {
                 let type_description = match target_type {
                     Some(type_expr) => format!("{type_expr}"),
@@ -498,7 +505,6 @@ impl ErrorMessage for CodegenError {
             Self::MissingElseInIfExpression { .. } => "Missing else branch in if expression".to_string(),
             Self::BlockExpressionMissingEndExpression { .. } => "Block expression must end with an expression".to_string(),
             Self::UnsupportedMatchPattern { .. } => "Unsupported match pattern".to_string(),
-            Self::InvalidEnumPatternSubjectType { subject_type, .. } => format!("Invalid enum pattern subject type: {subject_type}"),
             Self::UnknownEnumVariantInPattern { enum_identifier, .. } => format!("Unknown enum variant in pattern for enum '{enum_identifier}'"),
             Self::InvalidEnumPatternArgumentCount { enum_identifier, variant_identifier, expected, found, .. } => format!("Invalid number of patterns for enum variant '{variant_identifier}' of enum '{enum_identifier}' - expected {expected}, but found {found}"),
         }
@@ -508,34 +514,26 @@ impl ErrorMessage for CodegenError {
 impl ErrorWithLocation for CodegenError {
     fn line(&self) -> Option<u32> {
         match self {
-            Self::UnsupportedMapLiteral { line, .. } => Some(*line),
             Self::MissingType { line, .. } => Some(*line),
-            Self::InvalidArrayLiteralType { line, .. } => Some(*line),
-            Self::InvalidRangeType { line, .. } => Some(*line),
+            Self::UnexpectedTypeInCodegen { line, .. } => Some(*line),
             Self::InvalidEnumArgumentCount { line, .. } => Some(*line),
-            Self::UnsupportedEnumVariantPayload { line, .. } => Some(*line),
             Self::InvalidCallTarget { line, .. } => Some(*line),
             Self::MissingElseInIfExpression { line, .. } => Some(*line),
             Self::BlockExpressionMissingEndExpression { line, .. } => Some(*line),
             Self::UnsupportedMatchPattern { line, .. } => Some(*line),
-            Self::InvalidEnumPatternSubjectType { line, .. } => Some(*line),
             Self::UnknownEnumVariantInPattern { line, .. } => Some(*line),
             Self::InvalidEnumPatternArgumentCount { line, .. } => Some(*line),
         }
     }
     fn column(&self) -> Option<u32> {
         match self {
-            Self::UnsupportedMapLiteral { column, .. } => Some(*column),
             Self::MissingType { column, .. } => Some(*column),
-            Self::InvalidArrayLiteralType { column, .. } => Some(*column),
-            Self::InvalidRangeType { column, .. } => Some(*column),
+            Self::UnexpectedTypeInCodegen { column, .. } => Some(*column),
             Self::InvalidEnumArgumentCount { column, .. } => Some(*column),
-            Self::UnsupportedEnumVariantPayload { column, .. } => Some(*column),
             Self::InvalidCallTarget { column, .. } => Some(*column),
             Self::MissingElseInIfExpression { column, .. } => Some(*column),
             Self::BlockExpressionMissingEndExpression { column, .. } => Some(*column),
             Self::UnsupportedMatchPattern { column, .. } => Some(*column),
-            Self::InvalidEnumPatternSubjectType { column, .. } => Some(*column),
             Self::UnknownEnumVariantInPattern { column, .. } => Some(*column),
             Self::InvalidEnumPatternArgumentCount { column, .. } => Some(*column),
         }

@@ -40,11 +40,12 @@ See [delo_syntax.txt](delo_syntax.txt) for the full language syntax.
 - Parametric polymorphism (generic enums, structs, and functions)
 - Compiled to native executables by lowering to C and invoking a system C compiler
 - Time-traveling: read and mutate variables at previous program states using `x@=N` (absolute) and `x@-N` (relative); changes ripple forward through later states
-- Pattern matching expressions with wildcards (`_`), literals, enum-variant destructuring, ranges (inclusive and exclusive), and guard clauses (`if ...`)
-- First-class and higher-order functions with required parameter types, inferred or explicit return types, and generic type parameters
+- Pattern matching expressions with wildcards (`_`), literals, variable bindings, enum-variant destructuring, tuple destructuring, ranges (inclusive and exclusive), and guard clauses (`if ...`)
+- First-class and higher-order functions with required parameter types, inferred or explicit return types (including multi-value returns via tuples), and generic type parameters
 - Anonymous functions (lambdas) with full closures
 - Enums with associated values (payloads) and generic type parameters
-- Structs with fields and generic type parameters; field access (`.`) and instantiation
+- Structs with fields and generic type parameters
+- Tuples with destructuring in `var`, `match`, and `for`
 - Optional types with `Int?` syntactic sugar, pattern-matched destructuring, nil-coalescing operator (`??`), no force unwrapping
 - Primitive types: `Int`, `Double`, `Bool`, `String`, `Void`
 - Generic built-ins: `Optional<T>`, `Array<T>`, `Map<K, V>`, `Range<T>`, `InclusiveRange<T>`
@@ -54,7 +55,8 @@ See [delo_syntax.txt](delo_syntax.txt) for the full language syntax.
 - Comparison operators (`==`, `!=`, `<`, `<=`, `>`, `>=`) and short-circuiting logical operators (`&&`, `||`, `!`)
 - Index access (`[]`) and assignment for arrays and maps
 - If/else expressions and statements
-- While loops and for-loops over ranges, with `break` and `continue`
+- While loops and for-loops over ranges, arrays, and maps, with `break` and `continue`
+- Built-in functions: `print`, `map`, `filter`, `foldl`, `foldr`
 
 ## Installation
 
@@ -102,6 +104,13 @@ From a clone of the source repo, build delo first, then run the tests:
 cargo build --release
 cargo run --bin test_runner
 ```
+
+## Roadmap
+
+- Error handling (try/catch / Result-style propagation)
+- Imports and exports across files
+- Standard library beyond the existing built-in generics and functions (`print`, `map`, `filter`, `foldl`, `foldr`)
+- Time-travel ripple snapshots (skip re-execution from program start when only events past state N need recomputing)
 
 ## License
 
