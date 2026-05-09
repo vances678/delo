@@ -102,7 +102,7 @@ From a clone of the source repo, build delo first, then run the tests:
 
 ```sh
 cargo build --release
-cargo run --bin test_runner
+cargo run --bin test_runner --release --features dev
 ```
 
 ## Roadmap

@@ -3,9 +3,26 @@ name = "delo"
 version = "0.1.0"
 edition = "2024"
 default-run = "delo"
+description = "A statically typed, compiled-to-C programming language that can time-travel."
+license = "MIT"
+repository = "https://github.com/vances678/delo"
+homepage = "https://github.com/vances678/delo"
+readme = "README.md"
+keywords = ["compiler", "language", "time-travel"]
+categories = ["compilers", "command-line-utilities"]
+exclude = ["testing/delo_tests/", "TEST_OUTPUT.txt", "delo_spec.txt", "delo_syntax.txt"]
+
+[[bin]]
+name = "delo"
+path = "src/main.rs"
 
 [[bin]]
 name = "test_runner"
 path = "testing/test_runner.rs"
+required-features = ["dev"]
+
+[features]
+default = []
+dev = []
 
 [dependencies]
